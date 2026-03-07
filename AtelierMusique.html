@@ -1126,12 +1126,12 @@ async function connectWithPassword() {
       throw new Error((loginData.error || 'Identifiants incorrects') + ' — ' + detail);
     }
 
-    // Got a permanent token — store it, never the password
+    // Got a permanent token — use hostname returned by pCloud if provided
     state.pcloud.token = loginData.auth;
-    state.pcloud.server = server;
+    state.pcloud.server = loginData.hostname || server;
     state.pcloud.connected = true;
 
-    localStorage.setItem('am_auth', JSON.stringify({ token: loginData.auth, server }));
+    localStorage.setItem('am_auth', JSON.stringify({ token: loginData.auth, server: state.pcloud.server }));
     updateConnectionBadge(true, loginData.email || email);
 
     // Clear password immediately
