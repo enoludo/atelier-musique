@@ -1371,15 +1371,21 @@ async function loadFromPCloud() {
 
     state.dbFileId = dbFile.fileid;
 
-    // Download via file/checksumfile — getfilelink blocked by referer policy
-    // Use file_read to get raw content directly through API
-    const contentRes = await pcloudApi('getfilecontent', { fileid: dbFile.fileid });
-    // getfilecontent returns raw text, not JSON — handle separately
-    const rawUrl = new URL(`https://${state.pcloud.server}/getfilecontent`);
-    rawUrl.searchParams.set('auth', state.pcloud.token);
-    rawUrl.searchParams.set('fileid', dbFile.fileid);
-    const rawRes = await fetch(rawUrl.toString());
-    const b64 = await rawRes.text();
+    // Use pCloud streaming API: open → read → close (no referer issues)
+    const openRes = await pcloudApi('file_open', { flags: 0, fileid: dbFile.fileid });
+    if (openRes.result !== 0) throw new Error('file_open: ' + openRes.error);
+    const fd = openRes.fd;
+
+    let b64 = '';
+    try {
+      // file_read returns raw bytes — fetch directly
+      const readUrl = `https://${state.pcloud.server}/file_read?auth=${encodeURIComponent(state.pcloud.token)}&fd=${fd}&count=${dbFile.size}`;
+      const readRes = await fetch(readUrl);
+      b64 = await readRes.text();
+    } finally {
+      // Always close the file descriptor
+      await pcloudApi('file_close', { fd });
+    }
 
     // Decrypt
     const data = await decryptData(b64, state.pcloud.userid);
