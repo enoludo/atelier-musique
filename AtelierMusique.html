@@ -762,9 +762,22 @@
   }
   .color-swatch.selected { border-color: var(--text); transform: scale(1.15); }
 
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .folder-browser-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text2);
+    font-family: 'Funnel Sans', sans-serif;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .folder-browser-item:last-child { border-bottom: none; }
+  .folder-browser-item:hover { background: var(--surface3); color: var(--text); }
+  .folder-browser-item.selected { background: rgba(232,255,71,0.08); color: var(--accent); }
+  .folder-browser-item .fbi-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+  .folder-browser-item .fbi-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .folder-browser-item .fbi-nav { font-size: 11px; color: var(--text3); flex-shrink: 0; }
 
   /* Token success state */
   .token-success {
@@ -956,14 +969,22 @@
   </div>
 </div>
 
-<!-- MODAL: Import from pCloud -->
+<!-- MODAL: Import from pCloud — folder browser -->
 <div class="modal-overlay" id="importModal">
-  <div class="modal">
+  <div class="modal" style="max-width:500px">
     <div class="modal-title">Importer depuis pCloud</div>
     <div id="importContent">
-      <div class="modal-field">
-        <label>Chemin du dossier pCloud</label>
-        <input type="text" class="modal-input" id="importPath" placeholder="/ ou /Improvisations/2024..." value="/">
+      <!-- Folder browser -->
+      <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="browserPath">/ (racine)</div>
+        <button class="btn" id="browserUpBtn" onclick="browserUp()" style="padding:4px 10px;font-size:12px;display:none">↑ Parent</button>
+      </div>
+      <div id="folderBrowser" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;max-height:240px;overflow-y:auto;margin-bottom:14px">
+        <div class="loading"><div class="spinner"></div> Chargement…</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)">Dossier sélectionné :</div>
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="selectedImportPath">—</div>
       </div>
       <div class="modal-field">
         <label>Extensions à importer</label>
@@ -973,11 +994,11 @@
         <input type="checkbox" id="importRecursive" checked>
         <label style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--text2);font-family:'Funnel Sans',sans-serif">Inclure les sous-dossiers</label>
       </div>
-      <div class="notice">Les fichiers sont listés sans être modifiés. Alias et tags stockés uniquement dans votre navigateur.</div>
+      <div class="notice">Les fichiers sont listés sans être modifiés. Alias et tags stockés dans votre pCloud chiffré.</div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('importModal')">Annuler</button>
-      <button class="btn primary" onclick="scanPCloud()">Scanner</button>
+      <button class="btn primary" id="scanBtn" onclick="scanPCloud()" disabled>Scanner ce dossier</button>
     </div>
   </div>
 </div>
@@ -1028,13 +1049,11 @@ const DB_FILENAME = 'ateliermusique_db.json';
 const DB_PCLOUD_PATH = '/' + DB_FILENAME;
 
 // ============================================================
-//  AES-GCM ENCRYPTION (Web Crypto API — runs entirely in browser)
+//  AES-GCM ENCRYPTION — clé basée sur userid (stable, pas le token)
 // ============================================================
-async function deriveKey(token) {
-  // Derive a deterministic AES key from the OAuth token
-  // Only someone with the token can decrypt the DB
+async function deriveKey(userid) {
   const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(token), 'PBKDF2', false, ['deriveKey']);
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(String(userid)), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey(
     { name: 'PBKDF2', salt: enc.encode('ateliermusique_salt_v1'), iterations: 100000, hash: 'SHA-256' },
     keyMaterial,
@@ -1044,20 +1063,19 @@ async function deriveKey(token) {
   );
 }
 
-async function encryptData(data, token) {
-  const key = await deriveKey(token);
+async function encryptData(data, userid) {
+  const key = await deriveKey(userid);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const enc = new TextEncoder();
   const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(data)));
-  // Pack: iv (12 bytes) + ciphertext → base64
   const combined = new Uint8Array(12 + ciphertext.byteLength);
   combined.set(iv, 0);
   combined.set(new Uint8Array(ciphertext), 12);
   return btoa(String.fromCharCode(...combined));
 }
 
-async function decryptData(b64, token) {
-  const key = await deriveKey(token);
+async function decryptData(b64, userid) {
+  const key = await deriveKey(userid);
   const combined = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
   const iv = combined.slice(0, 12);
   const ciphertext = combined.slice(12);
@@ -1141,7 +1159,7 @@ async function connectWithPassword() {
     let validServer = null;
     for (const s of testServers) {
       try {
-        const testUrl = `https://${s}/userinfo?auth_token=${encodeURIComponent(loginData.auth)}`;
+        const testUrl = `https://${s}/userinfo?auth=${encodeURIComponent(loginData.auth)}`;
         const testRes = await fetch(testUrl);
         const testData = await testRes.json();
         console.log(`Test server ${s}:`, testData.result);
@@ -1152,7 +1170,8 @@ async function connectWithPassword() {
     if (!validServer) throw new Error('Token invalide sur tous les serveurs pCloud');
 
     state.pcloud.server = validServer;
-    localStorage.setItem('am_auth', JSON.stringify({ token: loginData.auth, server: validServer }));
+    state.pcloud.userid = loginData.userid;
+    localStorage.setItem('am_auth', JSON.stringify({ token: loginData.auth, server: validServer, userid: loginData.userid }));
     updateConnectionBadge(true, loginData.email || email);
 
     // Clear password immediately
@@ -1201,6 +1220,7 @@ async function load() {
       const a = JSON.parse(cached);
       state.pcloud.token = a.token;
       state.pcloud.server = a.server || 'eapi.pcloud.com';
+      state.pcloud.userid = a.userid || null;
     }
   } catch(e) {}
 
@@ -1260,7 +1280,7 @@ async function loadFromPCloud() {
     const b64 = await r.text();
 
     // Decrypt
-    const data = await decryptData(b64, state.pcloud.token);
+    const data = await decryptData(b64, state.pcloud.userid);
     state.files = data.files || [];
     state.folders = data.folders || [];
 
@@ -1299,7 +1319,7 @@ async function saveToPCloud() {
   setSyncStatus('syncing', 'Sauvegarde…');
   try {
     const data = { files: state.files, folders: state.folders, savedAt: new Date().toISOString(), version: 1 };
-    const encrypted = await encryptData(data, state.pcloud.token);
+    const encrypted = await encryptData(data, state.pcloud.userid);
 
     // Upload as text file
     const blob = new Blob([encrypted], { type: 'text/plain' });
@@ -1359,7 +1379,7 @@ function updateConnectionBadge(connected, label='') {
 async function pcloudApi(method, params = {}) {
   if (!state.pcloud.token) throw new Error('Non connecté');
   const url = new URL(`https://${state.pcloud.server}/${method}`);
-  url.searchParams.set('auth_token', state.pcloud.token);
+  url.searchParams.set('auth', state.pcloud.token);
   Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
   const r = await fetch(url.toString());
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -1378,7 +1398,8 @@ async function pcloudApi(method, params = {}) {
 }
 
 async function scanPCloud() {
-  const path = document.getElementById('importPath').value || '/';
+  const path = document.getElementById('selectedImportPath').textContent;
+  if (!path || path === '—') { showToast('Sélectionnez un dossier'); return; }
   const exts = document.getElementById('importExts').value.split(',').map(e => e.trim().toLowerCase());
   const recursive = document.getElementById('importRecursive').checked;
 
@@ -1702,13 +1723,66 @@ function showToast(msg) {
 }
 
 // ============================================================
-//  MODALS & KEYBOARD
+//  FOLDER BROWSER
 // ============================================================
+let browserCurrentPath = '/';
+
+async function showImportModal() {
+  browserCurrentPath = '/';
+  document.getElementById('selectedImportPath').textContent = '—';
+  document.getElementById('scanBtn').disabled = true;
+  document.getElementById('importModal').classList.add('show');
+  if (state.pcloud.connected) {
+    await browseTo('/');
+  } else {
+    document.getElementById('folderBrowser').innerHTML = '<div style="padding:20px;font-size:13px;color:var(--text3);text-align:center;font-family:DM Mono,monospace">Connectez-vous à pCloud d\'abord</div>';
+  }
+}
+
+async function browseTo(path) {
+  browserCurrentPath = path;
+  document.getElementById('browserPath').textContent = path || '/';
+  document.getElementById('browserUpBtn').style.display = path === '/' ? 'none' : 'flex';
+  const browser = document.getElementById('folderBrowser');
+  browser.innerHTML = '<div class="loading"><div class="spinner"></div> Chargement…</div>';
+
+  try {
+    const data = await pcloudApi('listfolder', { path, nofiles: 0 });
+    if (data.result !== 0) throw new Error(data.error);
+
+    const folders = (data.metadata?.contents || []).filter(f => f.isfolder);
+
+    if (folders.length === 0) {
+      browser.innerHTML = '<div style="padding:20px;font-size:13px;color:var(--text3);text-align:center;font-family:DM Mono,monospace">Aucun sous-dossier</div>';
+    } else {
+      browser.innerHTML = folders.map(f => `
+        <div class="folder-browser-item" onclick="selectBrowserFolder('${f.path.replace(/'/g,"\\'")}')">
+          <span class="fbi-icon">◈</span>
+          <span class="fbi-name">${f.name}</span>
+          <span class="fbi-nav" onclick="event.stopPropagation();browseTo('${f.path.replace(/'/g,"\\'")}')">Ouvrir →</span>
+        </div>`).join('');
+    }
+  } catch(e) {
+    browser.innerHTML = `<div style="padding:20px;font-size:13px;color:var(--danger);font-family:DM Mono,monospace">Erreur: ${e.message}</div>`;
+  }
+}
+
+function selectBrowserFolder(path) {
+  document.querySelectorAll('.folder-browser-item').forEach(el => el.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  document.getElementById('selectedImportPath').textContent = path;
+  document.getElementById('scanBtn').disabled = false;
+}
+
+function browserUp() {
+  const parts = browserCurrentPath.split('/').filter(Boolean);
+  parts.pop();
+  browseTo(parts.length === 0 ? '/' : '/' + parts.join('/'));
+}
 function showConnectModal() {
   resetLoginForm();
   document.getElementById('connectModal').classList.add('show');
 }
-function showImportModal() { document.getElementById('importModal').classList.add('show'); }
 function showAddFolderModal() { document.getElementById('addFolderModal').classList.add('show'); }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
