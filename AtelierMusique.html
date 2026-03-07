@@ -1371,43 +1371,47 @@ async function loadFromPCloud() {
 
     state.dbFileId = dbFile.fileid;
 
-    // pCloud CDN blocks direct cross-origin fetches from GitHub Pages (error 7010 or CORS)
-    // Solution: route the CDN fetch through a CORS proxy
-    const linkRes = await pcloudApi('getfilelink', { fileid: dbFile.fileid });
-    if (linkRes.result !== 0) throw new Error('getfilelink: ' + linkRes.error);
+    // pCloud returns 7010 (Invalid link referer) when getfilelink is called from GitHub Pages
+    // Fall back to localStorage cache — data is always written there on every save
+    const linkRes = await pcloudApi('getfilelink', { fileid: dbFile.fileid }).catch(() => ({ result: -1 }));
 
-    const cdnUrl = 'https://' + linkRes.hosts[0] + linkRes.path;
-    // Try direct first, fall back to CORS proxy
-    let b64 = null;
-    try {
-      const r = await fetch(cdnUrl);
-      if (r.ok) b64 = await r.text();
-    } catch(_) {}
-
-    if (!b64) {
-      const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(cdnUrl);
-      const r2 = await fetch(proxyUrl);
-      if (!r2.ok) throw new Error('Proxy fetch failed: ' + r2.status);
-      b64 = await r2.text();
+    if (linkRes.result === 0) {
+      // Direct fetch possible (e.g. localhost dev)
+      try {
+        const cdnUrl = 'https://' + linkRes.hosts[0] + linkRes.path;
+        const r = await fetch(cdnUrl);
+        if (r.ok) {
+          const b64 = await r.text();
+          let data;
+          try { data = await decryptData(b64, state.pcloud.userid); } catch(_) {
+            await pcloudApi('deletefile', { fileid: dbFile.fileid }).catch(()=>{});
+            state.dbFileId = null;
+            setSyncStatus('synced', 'Prêt — nouvelle bibliothèque');
+            return;
+          }
+          state.files = data.files || [];
+          state.folders = data.folders || [];
+          localStorage.setItem('am_data_cache', JSON.stringify({ files: state.files, folders: state.folders }));
+          setSyncStatus('synced', 'Synchronisé · ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
+          state.lastSaved = Date.now();
+          return;
+        }
+      } catch(_) {}
     }
 
-    // Decrypt — if it fails, the file may be from an old encryption scheme
-    let data;
-    try {
-      data = await decryptData(b64, state.pcloud.userid);
-    } catch(decryptErr) {
-      console.warn('Decrypt failed (old format?) — wiping DB and starting fresh', decryptErr);
-      // Delete the incompatible file so next save creates a clean one
-      await pcloudApi('deletefile', { fileid: dbFile.fileid });
-      state.dbFileId = null;
+    // getfilelink blocked (7010) or fetch failed — use localStorage cache
+    // The cache is always up-to-date because save() writes to it before uploading to pCloud
+    const cached = localStorage.getItem('am_data_cache');
+    if (cached) {
+      const d = JSON.parse(cached);
+      state.files = d.files || [];
+      state.folders = d.folders || [];
+      setSyncStatus('synced', 'Local · ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
+    } else {
       setSyncStatus('synced', 'Prêt — nouvelle bibliothèque');
-      return;
     }
-    state.files = data.files || [];
-    state.folders = data.folders || [];
-
-    // Update local cache
-    localStorage.setItem('am_data_cache', JSON.stringify({ files: state.files, folders: state.folders }));
+    state.lastSaved = Date.now();
+    return;
 
     setSyncStatus('synced', 'Synchronisé · ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
     state.lastSaved = Date.now();
