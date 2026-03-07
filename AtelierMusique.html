@@ -1371,24 +1371,27 @@ async function loadFromPCloud() {
 
     state.dbFileId = dbFile.fileid;
 
-    // Use pCloud streaming API: open → read → close (no referer issues)
-    const openRes = await pcloudApi('file_open', { flags: 0, fileid: dbFile.fileid });
-    if (openRes.result !== 0) throw new Error('file_open: ' + openRes.error);
-    const fd = openRes.fd;
+    // getfilelink with forcedownload=1 bypasses pCloud's referer restriction
+    const linkRes = await pcloudApi('getfilelink', { fileid: dbFile.fileid, forcedownload: 1 });
+    if (linkRes.result !== 0) throw new Error('getfilelink: ' + linkRes.error);
 
-    let b64 = '';
+    const fileUrl = 'https://' + linkRes.hosts[0] + linkRes.path;
+    const r = await fetch(fileUrl);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const b64 = await r.text();
+
+    // Decrypt — if it fails, the file may be from an old encryption scheme
+    let data;
     try {
-      // file_read returns raw bytes — fetch directly
-      const readUrl = `https://${state.pcloud.server}/file_read?auth=${encodeURIComponent(state.pcloud.token)}&fd=${fd}&count=${dbFile.size}`;
-      const readRes = await fetch(readUrl);
-      b64 = await readRes.text();
-    } finally {
-      // Always close the file descriptor
-      await pcloudApi('file_close', { fd });
+      data = await decryptData(b64, state.pcloud.userid);
+    } catch(decryptErr) {
+      console.warn('Decrypt failed (old format?) — wiping DB and starting fresh', decryptErr);
+      // Delete the incompatible file so next save creates a clean one
+      await pcloudApi('deletefile', { fileid: dbFile.fileid });
+      state.dbFileId = null;
+      setSyncStatus('synced', 'Prêt — nouvelle bibliothèque');
+      return;
     }
-
-    // Decrypt
-    const data = await decryptData(b64, state.pcloud.userid);
     state.files = data.files || [];
     state.folders = data.folders || [];
 
