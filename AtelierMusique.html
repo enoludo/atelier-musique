@@ -793,7 +793,8 @@
       <span id="syncLabel">—</span>
     </div>
     <span class="badge" id="connectionBadge">● Non connecté</span>
-    <button class="btn" onclick="showConnectModal()">⚡ Connecter pCloud</button>
+    <button class="btn" id="disconnectBtn" onclick="disconnect()" style="display:none">Déconnexion</button>
+    <button class="btn" id="connectBtn" onclick="showConnectModal()">⚡ Connecter pCloud</button>
     <button class="btn primary" onclick="showImportModal()">+ Importer</button>
   </div>
 </header>
@@ -1294,14 +1295,30 @@ async function saveToPCloud() {
   }
 }
 
+function disconnect() {
+  state.pcloud.token = null;
+  state.pcloud.server = 'eapi.pcloud.com';
+  state.pcloud.connected = false;
+  localStorage.removeItem('am_auth');
+  updateConnectionBadge(false);
+  document.getElementById('syncIndicator').style.display = 'none';
+  showToast('Déconnecté');
+}
+
 function updateConnectionBadge(connected, label='') {
   const b = document.getElementById('connectionBadge');
+  const disconnectBtn = document.getElementById('disconnectBtn');
+  const connectBtn = document.getElementById('connectBtn');
   if (connected) {
     b.textContent = `● Connecté${label ? ' · '+label : ''}`;
     b.classList.add('connected');
+    disconnectBtn.style.display = 'flex';
+    connectBtn.style.display = 'none';
   } else {
     b.textContent = '● Non connecté';
     b.classList.remove('connected');
+    disconnectBtn.style.display = 'none';
+    connectBtn.style.display = 'flex';
   }
 }
 
