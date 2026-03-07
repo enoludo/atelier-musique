@@ -1123,7 +1123,8 @@ async function connectWithPassword() {
     const loginData = await loginRes.json();
 
     if (loginData.result !== 0 || !loginData.auth) {
-      throw new Error(loginData.error || 'Identifiants incorrects');
+      const detail = JSON.stringify(loginData);
+      throw new Error((loginData.error || 'Identifiants incorrects') + ' — ' + detail);
     }
 
     // Got a permanent token — store it, never the password
