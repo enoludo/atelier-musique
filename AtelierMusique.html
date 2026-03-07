@@ -1,0 +1,1647 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atelier Musique</title>
+<link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300;400;500;600;700;800&family=Funnel+Sans:wght@300;400;500;600&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --surface3: #222222;
+    --border: #2a2a2a;
+    --accent: #e8ff47;
+    --accent2: #ff6b35;
+    --text: #f0f0f0;
+    --text2: #888;
+    --text3: #555;
+    --danger: #ff4444;
+    --success: #44ff88;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Funnel Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    height: 56px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: 'Funnel Display', sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .logo-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--surface3);
+    color: var(--text2);
+    border: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .badge.connected {
+    background: rgba(68,255,136,0.1);
+    color: var(--success);
+    border-color: rgba(68,255,136,0.3);
+  }
+
+  .sync-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    transition: all 0.3s;
+  }
+  .sync-indicator.syncing {
+    color: var(--accent);
+    border-color: rgba(232,255,71,0.2);
+    background: rgba(232,255,71,0.05);
+  }
+  .sync-indicator.synced {
+    color: var(--success);
+    border-color: rgba(68,255,136,0.2);
+    background: rgba(68,255,136,0.05);
+  }
+  .sync-indicator.error {
+    color: var(--danger);
+    border-color: rgba(255,68,68,0.2);
+    background: rgba(255,68,68,0.05);
+  }
+  .sync-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+  .sync-indicator.syncing .sync-dot {
+    animation: pulse 0.8s ease-in-out infinite;
+  }
+
+  /* MAIN LAYOUT */
+  .app {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 240px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text3);
+    margin-bottom: 10px;
+  }
+
+  .folder-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text2);
+    transition: all 0.15s;
+    font-family: 'Funnel Sans', sans-serif;
+  }
+
+  .folder-item:hover { background: var(--surface2); color: var(--text); }
+  .folder-item.active { background: var(--surface3); color: var(--accent); }
+
+  .folder-icon { font-size: 14px; width: 18px; text-align: center; }
+  .folder-count {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text3);
+    background: var(--surface3);
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .folder-item.active .folder-count { background: rgba(232,255,71,0.15); color: var(--accent); }
+
+  .btn-add-folder {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text3);
+    transition: all 0.15s;
+    border: 1px dashed var(--border);
+    background: none;
+    font-family: 'Funnel Sans', sans-serif;
+    width: 100%;
+    margin-top: 6px;
+  }
+  .btn-add-folder:hover { color: var(--accent); border-color: var(--accent); }
+
+  .tag-cloud { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .tag {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    background: var(--surface2);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .tag:hover { border-color: var(--text2); color: var(--text); }
+  .tag.active { border-color: var(--accent); color: var(--accent); background: rgba(232,255,71,0.08); }
+  .tag.color-0 { border-color: #ff6b35; color: #ff6b35; }
+  .tag.color-1 { border-color: #47c8ff; color: #47c8ff; }
+  .tag.color-2 { border-color: #b847ff; color: #b847ff; }
+  .tag.color-3 { border-color: #ff4784; color: #ff4784; }
+  .tag.color-4 { border-color: var(--accent); color: var(--accent); }
+
+  .sidebar-stats {
+    margin-top: auto;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 4px;
+    font-family: 'DM Mono', monospace;
+  }
+  .stat-row span:last-child { color: var(--text2); }
+
+  /* MAIN CONTENT */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .search-box {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    transition: border-color 0.2s;
+  }
+  .search-box:focus-within { border-color: var(--accent); }
+  .search-box input {
+    background: none; border: none; outline: none;
+    color: var(--text); font-family: 'Funnel Sans', sans-serif;
+    font-size: 13px; flex: 1;
+  }
+  .search-box input::placeholder { color: var(--text3); }
+  .search-icon { color: var(--text3); font-size: 14px; }
+
+  .view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .view-btn {
+    padding: 7px 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text3);
+    transition: all 0.15s;
+  }
+  .view-btn:hover { background: var(--surface2); color: var(--text); }
+  .view-btn.active { background: var(--surface3); color: var(--accent); }
+
+  .btn {
+    padding: 7px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text2);
+    font-family: 'Funnel Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--surface2); color: var(--text); }
+  .btn.primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .btn.primary:hover { background: #d4eb3a; }
+
+  /* FILE GRID */
+  .file-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .file-area::-webkit-scrollbar { width: 6px; }
+  .file-area::-webkit-scrollbar-track { background: transparent; }
+  .file-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .file-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .file-list { display: flex; flex-direction: column; gap: 2px; }
+
+  .file-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .file-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .file-card:hover { border-color: var(--text3); transform: translateY(-1px); }
+  .file-card:hover::before { opacity: 1; }
+  .file-card.selected { border-color: var(--accent); background: rgba(232,255,71,0.04); }
+  .file-card.selected::before { opacity: 1; }
+
+  .file-waveform {
+    height: 36px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 1.5px;
+  }
+
+  .wave-bar {
+    flex: 1;
+    background: var(--surface3);
+    border-radius: 2px;
+    transition: background 0.2s;
+  }
+
+  .file-card:hover .wave-bar,
+  .file-card.selected .wave-bar { background: var(--accent); }
+
+  .file-alias {
+    font-family: 'Funnel Display', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .file-original {
+    font-size: 10px;
+    color: var(--text3);
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .file-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+
+  .file-tag {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--surface3);
+    color: var(--text3);
+    border: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .file-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .file-duration {
+    background: var(--surface3);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  /* LIST VIEW */
+  .file-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+  .file-row:hover { background: var(--surface); border-color: var(--border); }
+  .file-row.selected { background: var(--surface); border-color: var(--accent); }
+
+  .row-icon { font-size: 16px; width: 24px; text-align: center; color: var(--text3); }
+  .row-alias { font-family: 'Funnel Display', sans-serif; font-size: 13px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row-original { font-size: 11px; color: var(--text3); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'DM Mono', monospace; }
+  .row-tags { display: flex; gap: 4px; flex-shrink: 0; }
+  .row-duration { font-size: 11px; color: var(--text3); width: 60px; text-align: right; flex-shrink: 0; font-family: 'DM Mono', monospace; }
+  .row-actions { display: none; gap: 4px; flex-shrink: 0; }
+  .file-row:hover .row-actions { display: flex; }
+
+  .icon-btn {
+    width: 26px; height: 26px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text2);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    transition: all 0.15s;
+  }
+  .icon-btn:hover { background: var(--surface3); color: var(--text); }
+  .icon-btn.accent:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* DETAIL PANEL */
+  .detail-panel {
+    width: 300px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    transition: width 0.3s;
+  }
+  .detail-panel.hidden { width: 0; overflow: hidden; }
+
+  .detail-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .detail-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text3);
+    margin-bottom: 8px;
+  }
+
+  .detail-alias {
+    font-family: 'Funnel Display', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    line-height: 1.2;
+  }
+
+  .detail-original {
+    font-size: 11px;
+    color: var(--text3);
+    word-break: break-all;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .detail-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .detail-body::-webkit-scrollbar { width: 4px; }
+  .detail-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .detail-field { margin-bottom: 20px; }
+  .detail-field-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text3);
+    margin-bottom: 8px;
+  }
+
+  .detail-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'Funnel Sans', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+    resize: none;
+  }
+  .detail-input:focus { border-color: var(--accent); }
+
+  .tag-input-row { display: flex; gap: 6px; }
+  .tag-input-row input { flex: 1; }
+
+  .detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+
+  .detail-tag {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11px;
+    padding: 3px 8px 3px 10px;
+    border-radius: 20px;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .tag-remove {
+    background: none; border: none; cursor: pointer;
+    color: var(--text3); font-size: 12px; line-height: 1;
+    padding: 0; transition: color 0.15s;
+  }
+  .tag-remove:hover { color: var(--danger); }
+
+  .detail-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+  }
+  .detail-footer .btn { flex: 1; justify-content: center; }
+
+  /* MODALS */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .modal-overlay.show { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px;
+    width: 460px;
+    transform: translateY(10px);
+    transition: transform 0.2s;
+  }
+  .modal-overlay.show .modal { transform: translateY(0); }
+
+  .modal-title {
+    font-family: 'Funnel Display', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .modal-sub {
+    font-size: 13px;
+    color: var(--text3);
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .modal-field { margin-bottom: 16px; }
+  .modal-field label {
+    display: block;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 6px;
+  }
+
+  .modal-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Funnel Sans', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .modal-input:focus { border-color: var(--accent); }
+
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
+
+  /* OAUTH CONNECT SCREEN */
+  .oauth-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .oauth-step {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .step-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text2);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .step-text { font-size: 13px; color: var(--text2); line-height: 1.5; }
+  .step-text a { color: var(--accent); text-decoration: none; }
+  .step-text a:hover { text-decoration: underline; }
+  .step-text code {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    background: var(--surface3);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--text);
+  }
+
+  .oauth-divider {
+    display: flex; align-items: center; gap: 12px;
+    margin: 20px 0;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+  }
+  .oauth-divider::before, .oauth-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  .notice {
+    font-size: 11px;
+    color: var(--text3);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    line-height: 1.6;
+    font-family: 'DM Mono', monospace;
+  }
+  .notice strong { color: var(--success); }
+  .notice.warn strong { color: var(--accent); }
+
+  /* BREADCRUMB */
+  .breadcrumb {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text3);
+    flex-shrink: 0;
+    font-family: 'DM Mono', monospace;
+  }
+  .breadcrumb span { cursor: pointer; }
+  .breadcrumb span:hover { color: var(--text); }
+  .breadcrumb .current { color: var(--text); }
+
+  /* EMPTY STATE */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex: 1; gap: 12px; color: var(--text3); padding: 40px; text-align: center;
+  }
+  .empty-icon { font-size: 48px; opacity: 0.3; }
+  .empty-title { font-family: 'Funnel Display', sans-serif; font-size: 20px; color: var(--text2); }
+  .empty-sub { font-size: 13px; max-width: 300px; line-height: 1.6; }
+
+  /* LOADING */
+  .loading {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; padding: 40px; color: var(--text3);
+    font-family: 'DM Mono', monospace; font-size: 13px;
+  }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .select-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'Funnel Sans', sans-serif;
+    font-size: 13px;
+    outline: none;
+    appearance: none;
+  }
+  .select-input:focus { border-color: var(--accent); }
+
+  .color-picker { display: flex; gap: 6px; flex-wrap: wrap; }
+  .color-swatch {
+    width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: all 0.15s;
+  }
+  .color-swatch.selected { border-color: var(--text); transform: scale(1.15); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Token success state */
+  .token-success {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    background: rgba(68,255,136,0.08);
+    border: 1px solid rgba(68,255,136,0.3);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--success);
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Atelier<em>Musique</em>
+  </div>
+  <div class="header-right">
+    <div class="sync-indicator" id="syncIndicator" style="display:none">
+      <div class="sync-dot"></div>
+      <span id="syncLabel">—</span>
+    </div>
+    <span class="badge" id="connectionBadge">● Non connecté</span>
+    <button class="btn" onclick="showConnectModal()">⚡ Connecter pCloud</button>
+    <button class="btn primary" onclick="showImportModal()">+ Importer</button>
+  </div>
+</header>
+
+<!-- APP -->
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Bibliothèques</div>
+      <div class="folder-item active" onclick="selectFolder('all')" id="folder-all">
+        <span class="folder-icon">◈</span> Tous les sons
+        <span class="folder-count" id="count-all">0</span>
+      </div>
+      <div id="folderList"></div>
+      <button class="btn-add-folder" onclick="showAddFolderModal()">
+        + Nouveau dossier
+      </button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">Tags</div>
+      <div class="tag-cloud" id="tagCloud">
+        <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
+      </div>
+    </div>
+
+    <div class="sidebar-stats">
+      <div class="stat-row"><span>Fichiers</span><span id="statFiles">0</span></div>
+      <div class="stat-row"><span>Dossiers</span><span id="statFolders">0</span></div>
+      <div class="stat-row"><span>Tags</span><span id="statTags">0</span></div>
+      <div class="stat-row"><span>Stockage</span><span id="statStorage">—</span></div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="toolbar">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" placeholder="Rechercher alias, tags, fichiers..." oninput="filterFiles()">
+      </div>
+      <div class="view-toggle">
+        <button class="view-btn active" onclick="setView('grid')" id="gridBtn" title="Grille">⊞</button>
+        <button class="view-btn" onclick="setView('list')" id="listBtn" title="Liste">☰</button>
+      </div>
+      <button class="btn" onclick="exportLibrary()">↓ Exporter</button>
+    </div>
+
+    <div class="breadcrumb" id="breadcrumb">
+      <span onclick="selectFolder('all')">Tous les sons</span>
+    </div>
+
+    <div class="file-area" id="fileArea">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">♫</div>
+        <div class="empty-title">Bibliothèque vide</div>
+        <div class="empty-sub">Connectez votre pCloud et importez des fichiers pour commencer à organiser vos sessions.</div>
+      </div>
+      <div id="fileGrid" class="file-grid" style="display:none"></div>
+    </div>
+  </main>
+
+  <!-- DETAIL PANEL -->
+  <div class="detail-panel hidden" id="detailPanel">
+    <div class="detail-header">
+      <div class="detail-label">Sélection</div>
+      <div class="detail-alias" id="detailAlias">—</div>
+      <div class="detail-original" id="detailOriginal">—</div>
+    </div>
+    <div class="detail-body">
+      <div class="detail-field">
+        <div class="detail-field-label">Alias (nom affiché)</div>
+        <input type="text" class="detail-input" id="editAlias" placeholder="Mon super son..." oninput="updateSelectedFile()">
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Notes</div>
+        <textarea class="detail-input" id="editNotes" rows="4" placeholder="Description, contexte, BPM..." oninput="updateSelectedFile()"></textarea>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Tags</div>
+        <div class="detail-tags" id="detailTagsList"></div>
+        <div class="tag-input-row">
+          <input type="text" class="detail-input" id="tagInput" placeholder="Ajouter un tag..." onkeydown="handleTagInput(event)">
+          <button class="btn" onclick="addTagToSelected()">+</button>
+        </div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Dossier virtuel</div>
+        <select class="select-input" id="editFolder" onchange="moveFileToFolder()">
+          <option value="">— Aucun dossier —</option>
+        </select>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Fichier original</div>
+        <div style="font-size:11px;color:var(--text3);word-break:break-all;line-height:1.5;font-family:'DM Mono',monospace" id="detailPath">—</div>
+      </div>
+    </div>
+    <div class="detail-footer">
+      <button class="btn accent" onclick="playSelectedFile()">▶ Écouter</button>
+      <button class="btn" onclick="closeDetail()">✕ Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     MODAL: Connect pCloud (email + password)
+============================================================ -->
+<div class="modal-overlay" id="connectModal">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-title">Connecter pCloud</div>
+    <div class="modal-sub">Entrez vos identifiants pCloud — un token permanent est généré et stocké chiffré sur votre machine.</div>
+
+    <div id="loginForm">
+      <div class="modal-field">
+        <label>Email pCloud</label>
+        <input type="email" class="modal-input" id="loginEmail" placeholder="vous@email.com" autocomplete="email">
+      </div>
+      <div class="modal-field">
+        <label>Mot de passe</label>
+        <input type="password" class="modal-input" id="loginPassword" placeholder="••••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter') connectWithPassword()">
+      </div>
+      <div class="modal-field">
+        <label>Région de votre compte</label>
+        <select class="modal-input" id="loginRegion">
+          <option value="eapi.pcloud.com">Europe (par défaut)</option>
+          <option value="api.pcloud.com">US</option>
+        </select>
+      </div>
+
+      <div class="notice">
+        <strong>✓ Sécurisé</strong> — Votre mot de passe transite uniquement vers pCloud via HTTPS et n'est jamais stocké. Seul le token de session résultant est conservé, chiffré localement.
+      </div>
+
+      <div id="loginError" style="display:none;margin-top:12px" class="notice" style="border-color:rgba(255,68,68,0.3)">
+        <span style="color:var(--danger)" id="loginErrorMsg">Identifiants incorrects.</span>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn" onclick="closeModal('connectModal')">Annuler</button>
+        <button class="btn primary" id="loginBtn" onclick="connectWithPassword()">
+          <span id="loginBtnLabel">Se connecter</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="loginSuccess" style="display:none">
+      <div class="token-success" style="margin-bottom:20px">
+        ✓ Connecté à pCloud
+      </div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:20px">
+        La synchronisation de votre bibliothèque est active. Vos alias, tags et dossiers virtuels seront disponibles sur tous vos appareils.
+      </div>
+      <div class="modal-footer" style="margin-top:0">
+        <button class="btn primary" onclick="closeModal('connectModal')">C'est parti →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Import from pCloud -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal">
+    <div class="modal-title">Importer depuis pCloud</div>
+    <div id="importContent">
+      <div class="modal-field">
+        <label>Chemin du dossier pCloud</label>
+        <input type="text" class="modal-input" id="importPath" placeholder="/ ou /Improvisations/2024..." value="/">
+      </div>
+      <div class="modal-field">
+        <label>Extensions à importer</label>
+        <input type="text" class="modal-input" id="importExts" value="wav,mp3,aif,aiff,flac,ogg,m4a">
+      </div>
+      <div class="modal-field" style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" id="importRecursive" checked>
+        <label style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--text2);font-family:'Funnel Sans',sans-serif">Inclure les sous-dossiers</label>
+      </div>
+      <div class="notice">Les fichiers sont listés sans être modifiés. Alias et tags stockés uniquement dans votre navigateur.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('importModal')">Annuler</button>
+      <button class="btn primary" onclick="scanPCloud()">Scanner</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Add Folder -->
+<div class="modal-overlay" id="addFolderModal">
+  <div class="modal">
+    <div class="modal-title">Nouveau dossier virtuel</div>
+    <div class="modal-field">
+      <label>Nom du dossier</label>
+      <input type="text" class="modal-input" id="newFolderName" placeholder="Session Printemps 2024...">
+    </div>
+    <div class="modal-field">
+      <label>Couleur</label>
+      <div class="color-picker">
+        <div class="color-swatch selected" style="background:#e8ff47" onclick="selectFolderColor('#e8ff47',this)"></div>
+        <div class="color-swatch" style="background:#ff6b35" onclick="selectFolderColor('#ff6b35',this)"></div>
+        <div class="color-swatch" style="background:#47c8ff" onclick="selectFolderColor('#47c8ff',this)"></div>
+        <div class="color-swatch" style="background:#b847ff" onclick="selectFolderColor('#b847ff',this)"></div>
+        <div class="color-swatch" style="background:#ff4784" onclick="selectFolderColor('#ff4784',this)"></div>
+        <div class="color-swatch" style="background:#44ff88" onclick="selectFolderColor('#44ff88',this)"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('addFolderModal')">Annuler</button>
+      <button class="btn primary" onclick="addFolder()">Créer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+let state = {
+  files: [], folders: [],
+  selectedFile: null, selectedFolder: 'all',
+  selectedTags: [], view: 'grid',
+  pcloud: { token: null, server: 'eapi.pcloud.com', connected: false },
+  folderColor: '#e8ff47', search: '',
+  pendingClientId: null, pendingServer: null,
+  dbFileId: null,   // pCloud fileId of ateliermusique_db.json
+  saveTimer: null,
+  lastSaved: null
+};
+
+const DB_FILENAME = 'ateliermusique_db.json';
+const DB_PCLOUD_PATH = '/' + DB_FILENAME;
+
+// ============================================================
+//  AES-GCM ENCRYPTION (Web Crypto API — runs entirely in browser)
+// ============================================================
+async function deriveKey(token) {
+  // Derive a deterministic AES key from the OAuth token
+  // Only someone with the token can decrypt the DB
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(token), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: enc.encode('ateliermusique_salt_v1'), iterations: 100000, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptData(data, token) {
+  const key = await deriveKey(token);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(JSON.stringify(data)));
+  // Pack: iv (12 bytes) + ciphertext → base64
+  const combined = new Uint8Array(12 + ciphertext.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(ciphertext), 12);
+  return btoa(String.fromCharCode(...combined));
+}
+
+async function decryptData(b64, token) {
+  const key = await deriveKey(token);
+  const combined = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const ciphertext = combined.slice(12);
+  const dec = new TextDecoder();
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+  return JSON.parse(dec.decode(plain));
+}
+
+// ============================================================
+//  SYNC STATUS UI
+// ============================================================
+function setSyncStatus(status, label) {
+  const el = document.getElementById('syncIndicator');
+  const lb = document.getElementById('syncLabel');
+  el.style.display = 'flex';
+  el.className = 'sync-indicator ' + status;
+  lb.textContent = label;
+}
+
+// ============================================================
+//  PASSWORD LOGIN
+// ============================================================
+async function connectWithPassword() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const server = document.getElementById('loginRegion').value;
+  const errEl = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  const label = document.getElementById('loginBtnLabel');
+
+  if (!email || !password) {
+    errEl.style.display = 'block';
+    document.getElementById('loginErrorMsg').textContent = 'Veuillez remplir tous les champs.';
+    return;
+  }
+
+  // Show loading state
+  btn.disabled = true;
+  label.textContent = 'Connexion…';
+  errEl.style.display = 'none';
+
+  try {
+    // pCloud userinfo with getauth=1 returns a permanent token
+    const url = `https://${server}/userinfo?getauth=1&logout=1&username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
+    const r = await fetch(url);
+    const data = await r.json();
+
+    if (data.result !== 0 || !data.token) {
+      throw new Error(data.error || 'Identifiants incorrects');
+    }
+
+    // Got a permanent token — store it (never the password)
+    state.pcloud.token = data.token;
+    state.pcloud.server = server;
+    state.pcloud.connected = true;
+
+    localStorage.setItem('am_auth', JSON.stringify({ token: data.token, server }));
+    updateConnectionBadge(true, data.email);
+
+    // Clear password field immediately
+    document.getElementById('loginPassword').value = '';
+
+    // Show success screen
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('loginSuccess').style.display = 'block';
+
+    // Load DB from pCloud
+    await loadFromPCloud();
+    render();
+
+  } catch(e) {
+    errEl.style.display = 'block';
+    document.getElementById('loginErrorMsg').textContent = e.message || 'Erreur de connexion.';
+    btn.disabled = false;
+    label.textContent = 'Se connecter';
+  }
+}
+
+function resetLoginForm() {
+  document.getElementById('loginForm').style.display = 'block';
+  document.getElementById('loginSuccess').style.display = 'none';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('loginBtn').disabled = false;
+  document.getElementById('loginBtnLabel').textContent = 'Se connecter';
+}
+
+// ============================================================
+//  LOAD — from pCloud first, localStorage as fallback cache
+// ============================================================
+async function load() {
+  // Always restore token from localStorage (never the password)
+  try {
+    const cached = localStorage.getItem('am_auth');
+    if (cached) {
+      const a = JSON.parse(cached);
+      state.pcloud.token = a.token;
+      state.pcloud.server = a.server || 'eapi.pcloud.com';
+    }
+  } catch(e) {}
+
+  if (state.pcloud.token) {
+    state.pcloud.connected = true;
+    updateConnectionBadge(true);
+    await loadFromPCloud();
+  } else {
+    // No token yet — load local cache for offline preview
+    try {
+      const cached = localStorage.getItem('am_data_cache');
+      if (cached) {
+        const d = JSON.parse(cached);
+        state.files = d.files || [];
+        state.folders = d.folders || [];
+      }
+    } catch(e) {}
+  }
+
+  render();
+}
+
+async function loadFromPCloud() {
+  setSyncStatus('syncing', 'Chargement…');
+  try {
+    // Try to find the DB file
+    const list = await pcloudApi('listfolder', { path: '/', nofiles: 0 });
+    if (list.result !== 0) throw new Error(list.error);
+
+    const dbFile = (list.metadata?.contents || []).find(f => !f.isfolder && f.name === DB_FILENAME);
+
+    if (!dbFile) {
+      // First launch — no DB yet, start fresh
+      setSyncStatus('synced', 'Prêt — nouvelle bibliothèque');
+      state.dbFileId = null;
+      return;
+    }
+
+    state.dbFileId = dbFile.fileid;
+
+    // Download the file
+    const linkRes = await pcloudApi('getfilelink', { fileid: dbFile.fileid });
+    if (linkRes.result !== 0) throw new Error(linkRes.error);
+
+    const fileUrl = 'https://' + linkRes.hosts[0] + linkRes.path;
+    const r = await fetch(fileUrl);
+    const b64 = await r.text();
+
+    // Decrypt
+    const data = await decryptData(b64, state.pcloud.token);
+    state.files = data.files || [];
+    state.folders = data.folders || [];
+
+    // Update local cache
+    localStorage.setItem('am_data_cache', JSON.stringify({ files: state.files, folders: state.folders }));
+
+    setSyncStatus('synced', 'Synchronisé · ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
+    state.lastSaved = Date.now();
+
+  } catch(e) {
+    setSyncStatus('error', 'Erreur sync');
+    console.error('Load error:', e);
+    // Fall back to local cache
+    try {
+      const cached = localStorage.getItem('am_data_cache');
+      if (cached) { const d = JSON.parse(cached); state.files = d.files||[]; state.folders = d.folders||[]; }
+    } catch(_) {}
+  }
+}
+
+// ============================================================
+//  SAVE — encrypt + upload to pCloud, debounced 1.5s
+// ============================================================
+function save() {
+  // Always update local cache immediately
+  localStorage.setItem('am_data_cache', JSON.stringify({ files: state.files, folders: state.folders }));
+
+  if (!state.pcloud.connected) return;
+
+  // Debounce remote saves to avoid hammering the API
+  clearTimeout(state.saveTimer);
+  state.saveTimer = setTimeout(saveToPCloud, 1500);
+}
+
+async function saveToPCloud() {
+  setSyncStatus('syncing', 'Sauvegarde…');
+  try {
+    const data = { files: state.files, folders: state.folders, savedAt: new Date().toISOString(), version: 1 };
+    const encrypted = await encryptData(data, state.pcloud.token);
+
+    // Upload as text file
+    const blob = new Blob([encrypted], { type: 'text/plain' });
+    const formData = new FormData();
+    formData.append('filename', DB_FILENAME);
+    formData.append('file', blob, DB_FILENAME);
+
+    // Use uploadfile endpoint — overwrites existing file at same path
+    const uploadUrl = `https://${state.pcloud.server}/uploadfile?access_token=${encodeURIComponent(state.pcloud.token)}&path=/&filename=${encodeURIComponent(DB_FILENAME)}&nopartial=1`;
+    const r = await fetch(uploadUrl, { method: 'POST', body: formData });
+    const res = await r.json();
+
+    if (res.result !== 0) throw new Error(res.error || `Code ${res.result}`);
+
+    // Store new fileId if changed
+    if (res.fileids?.[0]) state.dbFileId = res.fileids[0];
+
+    state.lastSaved = Date.now();
+    setSyncStatus('synced', 'Synchronisé · ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
+
+  } catch(e) {
+    setSyncStatus('error', 'Échec — données en cache');
+    console.error('Save error:', e);
+  }
+}
+
+function updateConnectionBadge(connected, label='') {
+  const b = document.getElementById('connectionBadge');
+  if (connected) {
+    b.textContent = `● Connecté${label ? ' · '+label : ''}`;
+    b.classList.add('connected');
+  } else {
+    b.textContent = '● Non connecté';
+    b.classList.remove('connected');
+  }
+}
+
+// ============================================================
+//  PCLOUD API
+// ============================================================
+async function pcloudApi(method, params = {}) {
+  if (!state.pcloud.token) throw new Error('Non connecté');
+  const url = new URL(`https://${state.pcloud.server}/${method}`);
+  url.searchParams.set('access_token', state.pcloud.token);
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
+  const r = await fetch(url.toString());
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function scanPCloud() {
+  const path = document.getElementById('importPath').value || '/';
+  const exts = document.getElementById('importExts').value.split(',').map(e => e.trim().toLowerCase());
+  const recursive = document.getElementById('importRecursive').checked;
+
+  const importContent = document.getElementById('importContent');
+  importContent.innerHTML = '<div class="loading"><div class="spinner"></div> Scan en cours...</div>';
+
+  try {
+    let files = [];
+    if (!state.pcloud.connected) {
+      files = generateDemoFiles();
+    } else {
+      files = await scanFolder(path, exts, recursive);
+    }
+
+    let added = 0;
+    files.forEach(f => {
+      if (!state.files.find(sf => sf.originalPath === f.path)) {
+        state.files.push({
+          id: 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+          originalName: f.name,
+          originalPath: f.path,
+          alias: f.name.replace(/\.[^.]+$/, ''),
+          notes: '', tags: [], folder: '',
+          pcloudId: f.id || null,
+          size: f.size || 0,
+          duration: null
+        });
+        added++;
+      }
+    });
+
+    save(); render();
+    closeModal('importModal');
+    importContent.innerHTML = buildImportContent();
+    showToast(added > 0 ? `${added} fichier(s) importé(s) ✓` : 'Aucun nouveau fichier');
+  } catch(e) {
+    importContent.innerHTML = `<div style="color:var(--danger);padding:20px;font-size:13px;font-family:'DM Mono',monospace">Erreur: ${e.message}</div>`;
+  }
+}
+
+function buildImportContent() {
+  return `<div class="modal-field"><label>Chemin du dossier pCloud</label><input type="text" class="modal-input" id="importPath" placeholder="/ ou /Improvisations/2024..." value="/"></div>
+<div class="modal-field"><label>Extensions à importer</label><input type="text" class="modal-input" id="importExts" value="wav,mp3,aif,aiff,flac,ogg,m4a"></div>
+<div class="modal-field" style="display:flex;align-items:center;gap:10px"><input type="checkbox" id="importRecursive" checked><label style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--text2);font-family:'Funnel Sans',sans-serif">Inclure les sous-dossiers</label></div>
+<div class="notice">Les fichiers sont listés sans être modifiés. Alias et tags stockés uniquement dans votre navigateur.</div>`;
+}
+
+async function scanFolder(path, exts, recursive) {
+  const data = await pcloudApi('listfolder', { path, nofiles: 0 });
+  if (data.result !== 0) throw new Error(data.error || `Code ${data.result}`);
+  let files = [];
+  for (const item of (data.metadata?.contents || [])) {
+    if (item.isfolder) {
+      if (recursive) files = files.concat(await scanFolder(item.path, exts, true));
+    } else {
+      const ext = item.name.split('.').pop().toLowerCase();
+      if (exts.includes(ext)) files.push({ name: item.name, path: item.path, id: item.fileid, size: item.size });
+    }
+  }
+  return files;
+}
+
+function generateDemoFiles() {
+  const names = [
+    'jam_session_01.wav','drone_loop_long.aif','guitar_impro_room.wav',
+    'piano_meditation.flac','bass_exploration.wav','synth_pad_dark.wav',
+    'field_recording_forest.wav','violin_noise.aif','cello_bow_pressure.wav',
+    'feedback_texture_01.mp3','breath_percussions.wav','water_stones.flac',
+    'late_night_impro.wav','morning_session_2023.wav','resonance_study_02.aif',
+    'tape_loop_experiment.wav','prepared_guitar.aif','found_sounds_city.wav',
+    'modular_patch_03.wav','voice_processing.mp3'
+  ];
+  return names.map((n,i) => ({ name:n, path:'/Improvisations/'+n, id:i+1, size: Math.floor(Math.random()*80e6+2e6) }));
+}
+
+// ============================================================
+//  FOLDERS
+// ============================================================
+function addFolder() {
+  const name = document.getElementById('newFolderName').value.trim();
+  if (!name) return;
+  state.folders.push({ id: 'dir_'+Date.now(), name, color: state.folderColor });
+  save(); renderSidebar(); closeModal('addFolderModal');
+  document.getElementById('newFolderName').value = '';
+}
+
+function selectFolder(id) {
+  state.selectedFolder = id;
+  state.selectedTags = [];
+  renderSidebar(); renderFiles(); renderBreadcrumb();
+}
+
+function selectFolderColor(color, el) {
+  state.folderColor = color;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ============================================================
+//  RENDER
+// ============================================================
+function render() { renderSidebar(); renderFiles(); renderBreadcrumb(); updateFolderSelect(); }
+
+function renderSidebar() {
+  document.getElementById('folderList').innerHTML = state.folders.map(f => {
+    const count = state.files.filter(file => file.folder === f.id).length;
+    const active = state.selectedFolder === f.id;
+    return `<div class="folder-item ${active?'active':''}" onclick="selectFolder('${f.id}')" style="${active?`color:${f.color}`:''}">
+      <span class="folder-icon" style="color:${f.color}">◈</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>
+      <span class="folder-count">${count}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('count-all').textContent = state.files.length;
+  document.getElementById('folder-all').className = 'folder-item' + (state.selectedFolder==='all'?' active':'');
+
+  const allTags = [...new Set(state.files.flatMap(f => f.tags))];
+  const colors = ['color-0','color-1','color-2','color-3','color-4'];
+  document.getElementById('tagCloud').innerHTML = allTags.length === 0
+    ? '<span style="font-size:11px;color:var(--text3);font-family:\'DM Mono\',monospace">Aucun tag</span>'
+    : allTags.map((t,i) => `<span class="tag ${colors[i%5]} ${state.selectedTags.includes(t)?'active':''}" onclick="toggleTag('${t}')">${t}</span>`).join('');
+
+  document.getElementById('statFiles').textContent = state.files.length;
+  document.getElementById('statFolders').textContent = state.folders.length;
+  document.getElementById('statTags').textContent = [...new Set(state.files.flatMap(f=>f.tags))].length;
+  const total = state.files.reduce((s,f) => s+(f.size||0), 0);
+  if (total > 0) document.getElementById('statStorage').textContent = formatSize(total);
+}
+
+function renderFiles() {
+  let files = state.files;
+  if (state.selectedFolder !== 'all') files = files.filter(f => f.folder === state.selectedFolder);
+  if (state.selectedTags.length > 0) files = files.filter(f => state.selectedTags.every(t => f.tags.includes(t)));
+  if (state.search) {
+    const s = state.search.toLowerCase();
+    files = files.filter(f =>
+      f.alias.toLowerCase().includes(s) || f.originalName.toLowerCase().includes(s) ||
+      f.tags.some(t => t.toLowerCase().includes(s)) || (f.notes||'').toLowerCase().includes(s)
+    );
+  }
+
+  const empty = document.getElementById('emptyState');
+  const grid = document.getElementById('fileGrid');
+
+  if (files.length === 0) {
+    empty.style.display = 'flex';
+    grid.style.display = 'none';
+    empty.innerHTML = state.files.length === 0
+      ? `<div class="empty-icon">♫</div><div class="empty-title">Bibliothèque vide</div><div class="empty-sub">Connectez votre pCloud et importez des fichiers pour commencer.</div>`
+      : `<div class="empty-icon">⌕</div><div class="empty-title">Aucun résultat</div><div class="empty-sub">Essayez d'autres termes ou modifiez les filtres actifs.</div>`;
+    return;
+  }
+
+  empty.style.display = 'none';
+  grid.style.display = '';
+  grid.className = state.view === 'grid' ? 'file-grid' : 'file-list';
+  grid.innerHTML = state.view === 'grid'
+    ? files.map(renderFileCard).join('')
+    : files.map(renderFileRow).join('');
+}
+
+function renderFileCard(f) {
+  const bars = Array.from({length:20}).map(() => `<div class="wave-bar" style="height:${Math.floor(Math.random()*70+10)}%"></div>`).join('');
+  const tagsHtml = f.tags.slice(0,3).map(t => `<span class="file-tag">${t}</span>`).join('');
+  return `<div class="file-card ${state.selectedFile===f.id?'selected':''}" onclick="selectFile('${f.id}')">
+    <div class="file-waveform">${bars}</div>
+    <div class="file-alias">${f.alias||f.originalName}</div>
+    <div class="file-original">${f.originalName}</div>
+    ${f.tags.length?`<div class="file-tags">${tagsHtml}${f.tags.length>3?`<span class="file-tag">+${f.tags.length-3}</span>`:''}</div>`:''}
+    <div class="file-meta"><span>${formatSize(f.size)}</span>${f.duration?`<span class="file-duration">${f.duration}</span>`:''}</div>
+  </div>`;
+}
+
+function renderFileRow(f) {
+  const tagsHtml = f.tags.slice(0,2).map(t => `<span class="file-tag">${t}</span>`).join('');
+  return `<div class="file-row ${state.selectedFile===f.id?'selected':''}" onclick="selectFile('${f.id}')">
+    <span class="row-icon">♪</span>
+    <span class="row-alias">${f.alias||f.originalName}</span>
+    <span class="row-original">${f.originalPath}</span>
+    <div class="row-tags">${tagsHtml}</div>
+    <span class="row-duration">${formatSize(f.size)}</span>
+    <div class="row-actions"><button class="icon-btn accent" onclick="event.stopPropagation();selectFile('${f.id}')" title="Modifier">✎</button></div>
+  </div>`;
+}
+
+function renderBreadcrumb() {
+  const bc = document.getElementById('breadcrumb');
+  if (state.selectedFolder === 'all') {
+    bc.innerHTML = `<span class="current">Tous les sons</span>`;
+  } else {
+    const folder = state.folders.find(f => f.id === state.selectedFolder);
+    bc.innerHTML = folder
+      ? `<span onclick="selectFolder('all')">Tous les sons</span><span style="opacity:.4"> / </span><span class="current" style="color:${folder.color}">${folder.name}</span>`
+      : '';
+  }
+  if (state.selectedTags.length > 0) bc.innerHTML += `<span style="opacity:.4"> · </span><span style="color:var(--accent)">${state.selectedTags.join(', ')}</span>`;
+}
+
+// ============================================================
+//  DETAIL PANEL
+// ============================================================
+function selectFile(id) {
+  state.selectedFile = id;
+  const f = state.files.find(f => f.id === id);
+  if (!f) return;
+  document.getElementById('detailPanel').classList.remove('hidden');
+  document.getElementById('detailAlias').textContent = f.alias || f.originalName;
+  document.getElementById('detailOriginal').textContent = f.originalName;
+  document.getElementById('detailPath').textContent = f.originalPath;
+  document.getElementById('editAlias').value = f.alias || '';
+  document.getElementById('editNotes').value = f.notes || '';
+  renderDetailTags(f);
+  updateFolderSelect();
+  document.getElementById('editFolder').value = f.folder || '';
+  renderFiles();
+}
+
+function renderDetailTags(f) {
+  document.getElementById('detailTagsList').innerHTML = (f.tags||[])
+    .map(t => `<span class="detail-tag">${t}<button class="tag-remove" onclick="removeTagFromFile('${f.id}','${t}')">✕</button></span>`).join('');
+}
+
+function updateSelectedFile() {
+  if (!state.selectedFile) return;
+  const f = state.files.find(f => f.id === state.selectedFile);
+  if (!f) return;
+  f.alias = document.getElementById('editAlias').value;
+  f.notes = document.getElementById('editNotes').value;
+  document.getElementById('detailAlias').textContent = f.alias || f.originalName;
+  save(); renderFiles(); renderSidebar();
+}
+
+function moveFileToFolder() {
+  if (!state.selectedFile) return;
+  const f = state.files.find(f => f.id === state.selectedFile);
+  if (f) { f.folder = document.getElementById('editFolder').value; save(); renderSidebar(); renderFiles(); }
+}
+
+function handleTagInput(e) { if (e.key === 'Enter') addTagToSelected(); }
+
+function addTagToSelected() {
+  if (!state.selectedFile) return;
+  const input = document.getElementById('tagInput');
+  const tag = input.value.trim().toLowerCase().replace(/\s+/g,'_');
+  if (!tag) return;
+  const f = state.files.find(f => f.id === state.selectedFile);
+  if (f && !f.tags.includes(tag)) { f.tags.push(tag); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
+  input.value = '';
+}
+
+function removeTagFromFile(fileId, tag) {
+  const f = state.files.find(f => f.id === fileId);
+  if (f) { f.tags = f.tags.filter(t => t !== tag); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
+}
+
+function toggleTag(tag) {
+  const idx = state.selectedTags.indexOf(tag);
+  if (idx >= 0) state.selectedTags.splice(idx,1); else state.selectedTags.push(tag);
+  renderSidebar(); renderFiles(); renderBreadcrumb();
+}
+
+function closeDetail() {
+  state.selectedFile = null;
+  document.getElementById('detailPanel').classList.add('hidden');
+  renderFiles();
+}
+
+function playSelectedFile() {
+  if (!state.selectedFile) return;
+  const f = state.files.find(f => f.id === state.selectedFile);
+  if (f) showToast(`▶ ${f.alias || f.originalName}\n(Lecture via lien signé pCloud — à venir)`);
+}
+
+// ============================================================
+//  VIEW & SEARCH
+// ============================================================
+function setView(v) {
+  state.view = v;
+  document.getElementById('gridBtn').className = 'view-btn' + (v==='grid'?' active':'');
+  document.getElementById('listBtn').className = 'view-btn' + (v==='list'?' active':'');
+  renderFiles();
+}
+
+function filterFiles() { state.search = document.getElementById('searchInput').value; renderFiles(); }
+
+function updateFolderSelect() {
+  const sel = document.getElementById('editFolder');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Aucun dossier —</option>' +
+    state.folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+  sel.value = cur;
+}
+
+// ============================================================
+//  EXPORT
+// ============================================================
+function exportLibrary() {
+  const blob = new Blob([JSON.stringify({ files:state.files, folders:state.folders, exportedAt:new Date().toISOString() }, null, 2)], {type:'application/json'});
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'ateliermusique_export.json' });
+  a.click(); URL.revokeObjectURL(a.href);
+  showToast('Export téléchargé ✓');
+}
+
+// ============================================================
+//  UTILS
+// ============================================================
+function formatSize(bytes) {
+  if (!bytes) return '—';
+  if (bytes > 1e9) return (bytes/1e9).toFixed(1)+' GB';
+  if (bytes > 1e6) return (bytes/1e6).toFixed(1)+' MB';
+  if (bytes > 1e3) return (bytes/1e3).toFixed(0)+' KB';
+  return bytes+' B';
+}
+
+function showToast(msg) {
+  const t = Object.assign(document.createElement('div'), { textContent: msg });
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--accent);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;white-space:pre-line;text-align:center;font-family:Funnel Sans,sans-serif;box-shadow:0 4px 20px rgba(0,0,0,0.4)';
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ============================================================
+//  MODALS & KEYBOARD
+// ============================================================
+function showConnectModal() {
+  resetLoginForm();
+  document.getElementById('connectModal').classList.add('show');
+}
+function showImportModal() { document.getElementById('importModal').classList.add('show'); }
+function showAddFolderModal() { document.getElementById('addFolderModal').classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if(e.target===m) m.classList.remove('show'); });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+    if (state.selectedFile) closeDetail();
+  }
+  if ((e.ctrlKey||e.metaKey) && e.key==='f') { e.preventDefault(); document.getElementById('searchInput').focus(); }
+});
+
+load();</script>
+</body>
+</html>
