@@ -1835,7 +1835,8 @@ function showToast(msg) {
 //  MODE SWITCHING (explorer / library)
 // ============================================================
 let appMode = 'explorer';
-let explorerPath = '/';
+let explorerPath = '/02-MUSIQUE/01-ATELIER MUSIQUE';
+const EXPLORER_ROOT = '/02-MUSIQUE/01-ATELIER MUSIQUE';
 let explorerCache = {}; // path → contents
 
 function setMode(mode) {
@@ -2025,9 +2026,11 @@ function importFromDetail() {
 
 function renderExplorerBreadcrumb(path) {
   const bc = document.getElementById('breadcrumb');
-  const parts = path.split('/').filter(Boolean);
-  let html = `<span onclick="explorerGoTo('/')">pCloud</span>`;
-  let cumPath = '';
+  const rel = path.startsWith(EXPLORER_ROOT) ? path.slice(EXPLORER_ROOT.length) : '';
+  const parts = rel.split('/').filter(Boolean);
+
+  let html = `<span onclick="explorerGoTo('${EXPLORER_ROOT}')" style="cursor:pointer">Atelier Musique</span>`;
+  let cumPath = EXPLORER_ROOT;
   parts.forEach((p, i) => {
     cumPath += '/' + p;
     const cp = cumPath;
@@ -2035,7 +2038,7 @@ function renderExplorerBreadcrumb(path) {
     if (i === parts.length - 1) {
       html += `<span class="current">${p}</span>`;
     } else {
-      html += `<span onclick="explorerGoTo('${cp}')">${p}</span>`;
+      html += `<span onclick="explorerGoTo('${cp}')" style="cursor:pointer">${p}</span>`;
     }
   });
   bc.innerHTML = html;
@@ -2089,9 +2092,11 @@ function selectBrowserFolder(path) {
 }
 
 function browserUp() {
-  const parts = browserCurrentPath.split('/').filter(Boolean);
+  if (explorerPath === EXPLORER_ROOT) return;
+  const parts = explorerPath.split('/').filter(Boolean);
   parts.pop();
-  browseTo(parts.length === 0 ? '/' : '/' + parts.join('/'));
+  const parent = '/' + parts.join('/');
+  explorerGoTo(parent.length <= EXPLORER_ROOT.length ? EXPLORER_ROOT : parent);
 }
 function showConnectModal() {
   resetLoginForm();
