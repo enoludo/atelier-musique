@@ -1120,6 +1120,7 @@ async function connectWithPassword() {
 
     const loginRes = await fetch(loginUrl);
     const loginData = await loginRes.json();
+    console.log('pCloud login response:', JSON.stringify(loginData));
 
     if (loginData.result !== 0 || !loginData.auth) {
       const detail = JSON.stringify(loginData);
@@ -1207,18 +1208,16 @@ async function loadFromPCloud() {
   try {
     const list = await pcloudApi('listfolder', { path: '/', nofiles: 0 });
 
-    // Token invalid — clear and ask to reconnect
-    if (list.result === 1000 || list.result === 2094 || list.result === 2000) {
+    if (list.result === 1000 || list.result === 2094) {
       localStorage.removeItem('am_auth');
       state.pcloud.token = null;
       state.pcloud.connected = false;
       updateConnectionBadge(false);
       document.getElementById('syncIndicator').style.display = 'none';
-      showToast('Session expirée — veuillez vous reconnecter');
-      return;
+      throw new Error(`Session expirée (code ${list.result}) — veuillez vous reconnecter`);
     }
 
-    if (list.result !== 0) throw new Error(list.error);
+    if (list.result !== 0) throw new Error(`Erreur pCloud code ${list.result}: ${list.error}`);
 
     const dbFile = (list.metadata?.contents || []).find(f => !f.isfolder && f.name === DB_FILENAME);
 
