@@ -1328,7 +1328,7 @@ async function saveToPCloud() {
     formData.append('file', blob, DB_FILENAME);
 
     // Use uploadfile endpoint — overwrites existing file at same path
-    const uploadUrl = `https://${state.pcloud.server}/uploadfile?access_token=${encodeURIComponent(state.pcloud.token)}&path=/&filename=${encodeURIComponent(DB_FILENAME)}&nopartial=1`;
+    const uploadUrl = `https://${state.pcloud.server}/uploadfile?auth=${encodeURIComponent(state.pcloud.token)}&path=/&filename=${encodeURIComponent(DB_FILENAME)}&nopartial=1`;
     const r = await fetch(uploadUrl, { method: 'POST', body: formData });
     const res = await r.json();
 
