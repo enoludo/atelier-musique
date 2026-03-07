@@ -1371,36 +1371,9 @@ async function loadFromPCloud() {
 
     state.dbFileId = dbFile.fileid;
 
-    // pCloud returns 7010 (Invalid link referer) when getfilelink is called from GitHub Pages
-    // Fall back to localStorage cache — data is always written there on every save
-    const linkRes = await pcloudApi('getfilelink', { fileid: dbFile.fileid }).catch(() => ({ result: -1 }));
-
-    if (linkRes.result === 0) {
-      // Direct fetch possible (e.g. localhost dev)
-      try {
-        const cdnUrl = 'https://' + linkRes.hosts[0] + linkRes.path;
-        const r = await fetch(cdnUrl);
-        if (r.ok) {
-          const b64 = await r.text();
-          let data;
-          try { data = await decryptData(b64, state.pcloud.userid); } catch(_) {
-            await pcloudApi('deletefile', { fileid: dbFile.fileid }).catch(()=>{});
-            state.dbFileId = null;
-            setSyncStatus('synced', 'Prêt — nouvelle bibliothèque');
-            return;
-          }
-          state.files = data.files || [];
-          state.folders = data.folders || [];
-          localStorage.setItem('am_data_cache', JSON.stringify({ files: state.files, folders: state.folders }));
-          setSyncStatus('synced', 'Synchronisé · ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
-          state.lastSaved = Date.now();
-          return;
-        }
-      } catch(_) {}
-    }
-
-    // getfilelink blocked (7010) or fetch failed — use localStorage cache
-    // The cache is always up-to-date because save() writes to it before uploading to pCloud
+    // pCloud CDN always returns 7010 from GitHub Pages — cannot read DB back from pCloud
+    // Strategy: localStorage is the source of truth for reads, pCloud is backup for writes
+    // This is safe because save() always writes to localStorage BEFORE uploading to pCloud
     const cached = localStorage.getItem('am_data_cache');
     if (cached) {
       const d = JSON.parse(cached);
@@ -1412,9 +1385,6 @@ async function loadFromPCloud() {
     }
     state.lastSaved = Date.now();
     return;
-
-    setSyncStatus('synced', 'Synchronisé · ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
-    state.lastSaved = Date.now();
 
   } catch(e) {
     setSyncStatus('error', 'Erreur sync');
