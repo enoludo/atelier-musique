@@ -1105,12 +1105,10 @@ async function connectWithPassword() {
 
     const digest = digestData.digest;
 
-    // Step 2 — hash password the pCloud way:
-    // SHA1(password) → hex lowercase
-    // SHA1(username_lowercase + SHA1(SHA1(password)) + digest) → hex lowercase
-    const pwHash       = await sha1hex(password);
-    const pwHashHash   = await sha1hex(pwHash);
-    const passwordDigest = await sha1hex(email.toLowerCase() + pwHashHash + digest);
+    // Step 2 — hash password the correct pCloud way:
+    // passworddigest = SHA1( password + SHA1( lowercase_username ) + digest )
+    const usernameSha1  = await sha1hex(email.toLowerCase());
+    const passwordDigest = await sha1hex(password + usernameSha1 + digest);
 
     // Step 3 — login with digest
     const loginUrl = `https://${server}/userinfo?getauth=1&logout=1`
