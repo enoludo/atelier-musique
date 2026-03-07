@@ -381,18 +381,19 @@
     margin-bottom: 12px;
     display: flex;
     align-items: center;
-    gap: 1.5px;
+    gap: 1px;
   }
 
   .wave-bar {
-    flex: 1;
-    background: var(--surface3);
-    border-radius: 2px;
+    width: 2px;
+    flex: none;
+    background: rgba(255,255,255,0.15);
+    border-radius: 1px;
     transition: background 0.2s;
   }
 
   .file-card:hover .wave-bar,
-  .file-card.selected .wave-bar { background: var(--accent); }
+  .file-card.selected .wave-bar { background: rgba(255,255,255,0.7); }
 
   .file-alias {
     font-family: 'Funnel Display', sans-serif;
@@ -810,11 +811,11 @@
 
   .explorer-waveform {
     height: 28px; margin-bottom: 10px;
-    display: flex; align-items: center; gap: 1.5px;
+    display: flex; align-items: center; gap: 1px;
   }
   .explorer-file:hover .wave-bar,
-  .explorer-file.imported .wave-bar { background: var(--accent); opacity: 0.7; }
-  .explorer-file.selected .wave-bar { background: var(--accent); opacity: 1; }
+  .explorer-file.imported .wave-bar { background: rgba(255,255,255,0.6); }
+  .explorer-file.selected .wave-bar { background: rgba(255,255,255,0.9); }
 
   .explorer-name { font-family: 'Funnel Display', sans-serif; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
   .explorer-original { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 6px; }
@@ -1671,7 +1672,7 @@ function renderFiles() {
 }
 
 function renderFileCard(f) {
-  const bars = Array.from({length:20}).map(() => `<div class="wave-bar" style="height:${Math.floor(Math.random()*70+10)}%"></div>`).join('');
+  const bars = Array.from({length:32}).map(() => `<div class="wave-bar" style="height:${Math.floor(Math.pow(Math.random(),0.6)*80+8)}%"></div>`).join('');
   const tagsHtml = f.tags.slice(0,3).map(t => `<span class="file-tag">${t}</span>`).join('');
   return `<div class="file-card ${state.selectedFile===f.id?'selected':''}" onclick="selectFile('${f.id}')">
     <div class="file-waveform">${bars}</div>
@@ -1940,7 +1941,7 @@ function renderExplorerFolderRow(f) {
 
 function renderExplorerFileCard(f) {
   const imported = state.files.find(sf => sf.originalPath === f.path);
-  const bars = Array.from({length:16}).map(() => `<div class="wave-bar" style="height:${Math.floor(Math.random()*70+10)}%"></div>`).join('');
+  const bars = Array.from({length:28}).map(() => `<div class="wave-bar" style="height:${Math.floor(Math.pow(Math.random(),0.6)*80+8)}%"></div>`).join('');
   const displayName = imported ? (imported.alias || imported.originalName.replace(/\.[^.]+$/,'')) : f.name.replace(/\.[^.]+$/,'');
   const sel = state.selectedFile === (imported?.id || f.path);
 
