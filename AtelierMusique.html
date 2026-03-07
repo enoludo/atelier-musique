@@ -179,6 +179,8 @@
   .folder-item.active { background: var(--surface3); color: var(--accent); }
 
   .folder-icon { font-size: 14px; width: 18px; text-align: center; }
+  .folder-icon svg, .fbi-icon svg { display: inline-block; vertical-align: middle; }
+  .explorer-folder-icon svg { display: block; }
   .folder-count {
     margin-left: auto;
     font-size: 11px;
@@ -893,10 +895,10 @@
     <div class="sidebar-section">
       <div class="sidebar-title">Mode</div>
       <div class="folder-item active" onclick="setMode('explorer')" id="mode-explorer">
-        <span class="folder-icon">◈</span> Explorateur pCloud
+        <span class="folder-icon" id="icon-explorer"></span> Explorateur pCloud
       </div>
       <div class="folder-item" onclick="setMode('library')" id="mode-library">
-        <span class="folder-icon">◫</span> Ma bibliothèque
+        <span class="folder-icon" id="icon-library"></span> Ma bibliothèque
         <span class="folder-count" id="count-all">0</span>
       </div>
     </div>
@@ -905,7 +907,7 @@
     <div class="sidebar-section" id="virtualFoldersSection" style="display:none">
       <div class="sidebar-title">Dossiers virtuels</div>
       <div class="folder-item" onclick="selectFolder('all')" id="folder-all">
-        <span class="folder-icon">◈</span> Tous les sons
+        <span class="folder-icon" id="icon-all"></span> Tous les sons
         <span class="folder-count" id="count-library">0</span>
       </div>
       <div id="folderList"></div>
@@ -1613,7 +1615,7 @@ function renderSidebar() {
     const count = state.files.filter(file => file.folder === f.id).length;
     const active = state.selectedFolder === f.id;
     return `<div class="folder-item ${active?'active':''}" onclick="selectFolder('${f.id}')" style="${active?`color:${f.color}`:''}">
-      <span class="folder-icon" style="color:${f.color}">◈</span>
+      <span class="folder-icon">${folderSVG(14, f.color)}</span>
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>
       <span class="folder-count">${count}</span>
     </div>`;
@@ -1832,8 +1834,11 @@ function showToast(msg) {
 }
 
 // ============================================================
-//  MODE SWITCHING (explorer / library)
+//  ICONS
 // ============================================================
+function folderSVG(size=16, color='currentColor') {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>`;
+}
 let appMode = 'explorer';
 let explorerPath = '/02-MUSIQUE/01-ATELIER MUSIQUE';
 const EXPLORER_ROOT = '/02-MUSIQUE/01-ATELIER MUSIQUE';
@@ -1920,14 +1925,14 @@ function renderExplorer(folders, files) {
 
 function renderExplorerFolderCard(f) {
   return `<div class="explorer-folder" ondblclick="explorerGoTo('${f.path.replace(/'/g,"\\'")}')">
-    <div class="explorer-folder-icon">◈</div>
+    <div class="explorer-folder-icon">${folderSVG(28, 'var(--text2)')}</div>
     <div class="explorer-folder-name">${f.name}</div>
   </div>`;
 }
 
 function renderExplorerFolderRow(f) {
   return `<div class="explorer-row" ondblclick="explorerGoTo('${f.path.replace(/'/g,"\\'")}')">
-    <span style="font-size:16px;width:24px;text-align:center;color:var(--accent)">◈</span>
+    <span style="width:24px;text-align:center;display:flex;align-items:center;justify-content:center">${folderSVG(16, 'var(--text3)')}</span>
     <span style="font-family:'Funnel Display',sans-serif;font-weight:600;font-size:13px;flex:1">${f.name}</span>
     <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Ouvrir →</span>
   </div>`;
@@ -2074,7 +2079,7 @@ async function browseTo(path) {
     } else {
       browser.innerHTML = folders.map(f => `
         <div class="folder-browser-item" onclick="selectBrowserFolder('${f.path.replace(/'/g,"\\'")}')">
-          <span class="fbi-icon">◈</span>
+          <span class="fbi-icon">${folderSVG(15, 'var(--text2)')}</span>
           <span class="fbi-name">${f.name}</span>
           <span class="fbi-nav" onclick="event.stopPropagation();browseTo('${f.path.replace(/'/g,"\\'")}')">Ouvrir →</span>
         </div>`).join('');
@@ -2117,6 +2122,11 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey||e.metaKey) && e.key==='f') { e.preventDefault(); document.getElementById('searchInput').focus(); }
 });
 
-load();</script>
+load();
+
+// Inject SVG folder icons into static HTML elements
+document.getElementById('icon-explorer').innerHTML = folderSVG(14, 'var(--text2)');
+document.getElementById('icon-library').innerHTML = folderSVG(14, 'var(--text2)');
+document.getElementById('icon-all').innerHTML = folderSVG(14, 'var(--text2)');</script>
 </body>
 </html>
