@@ -1127,12 +1127,32 @@ async function connectWithPassword() {
       throw new Error((loginData.error || 'Identifiants incorrects') + ' — ' + detail);
     }
 
-    // Got a permanent token — use hostname returned by pCloud if provided
+    // pCloud Europe accounts: token must be used on eapi.pcloud.com
+    // but some tokens only work on api.pcloud.com — try both
     state.pcloud.token = loginData.auth;
-    state.pcloud.server = loginData.hostname || server;
+    state.pcloud.server = server;
     state.pcloud.connected = true;
 
-    localStorage.setItem('am_auth', JSON.stringify({ token: loginData.auth, server: state.pcloud.server }));
+    // Test token — if it fails on current server, try the other one
+    const testServers = server === 'eapi.pcloud.com'
+      ? ['eapi.pcloud.com', 'api.pcloud.com']
+      : ['api.pcloud.com', 'eapi.pcloud.com'];
+
+    let validServer = null;
+    for (const s of testServers) {
+      try {
+        const testUrl = `https://${s}/userinfo?access_token=${encodeURIComponent(loginData.auth)}`;
+        const testRes = await fetch(testUrl);
+        const testData = await testRes.json();
+        console.log(`Test server ${s}:`, testData.result);
+        if (testData.result === 0) { validServer = s; break; }
+      } catch(e) {}
+    }
+
+    if (!validServer) throw new Error('Token invalide sur tous les serveurs pCloud');
+
+    state.pcloud.server = validServer;
+    localStorage.setItem('am_auth', JSON.stringify({ token: loginData.auth, server: validServer }));
     updateConnectionBadge(true, loginData.email || email);
 
     // Clear password immediately
