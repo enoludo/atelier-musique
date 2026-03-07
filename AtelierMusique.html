@@ -1141,7 +1141,7 @@ async function connectWithPassword() {
     let validServer = null;
     for (const s of testServers) {
       try {
-        const testUrl = `https://${s}/userinfo?access_token=${encodeURIComponent(loginData.auth)}`;
+        const testUrl = `https://${s}/userinfo?auth_token=${encodeURIComponent(loginData.auth)}`;
         const testRes = await fetch(testUrl);
         const testData = await testRes.json();
         console.log(`Test server ${s}:`, testData.result);
@@ -1359,7 +1359,7 @@ function updateConnectionBadge(connected, label='') {
 async function pcloudApi(method, params = {}) {
   if (!state.pcloud.token) throw new Error('Non connecté');
   const url = new URL(`https://${state.pcloud.server}/${method}`);
-  url.searchParams.set('access_token', state.pcloud.token);
+  url.searchParams.set('auth_token', state.pcloud.token);
   Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
   const r = await fetch(url.toString());
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
