@@ -846,6 +846,42 @@
   .folder-browser-item .fbi-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .folder-browser-item .fbi-nav { font-size: 11px; color: var(--text3); flex-shrink: 0; }
 
+  .folder-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px 3px 6px; border-radius: 20px;
+    font-size: 11px; font-family: 'DM Mono', monospace;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.06); color: var(--text);
+    cursor: default;
+  }
+  .folder-chip .chip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .folder-chip .chip-remove {
+    opacity: 0.4; font-size: 10px; cursor: pointer; line-height: 1; margin-left: 2px;
+  }
+  .folder-chip .chip-remove:hover { opacity: 1; }
+  .folder-chip-add {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-family: 'DM Mono', monospace;
+    border: 1px dashed var(--border); color: var(--text3);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .folder-chip-add:hover { border-color: var(--text2); color: var(--text2); }
+  .folders-dropdown {
+    position: absolute; z-index: 100;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    min-width: 180px; margin-top: 4px;
+  }
+  .folders-dropdown-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 5px; cursor: pointer;
+    font-size: 12px; font-family: 'Funnel Sans', sans-serif;
+    color: var(--text2); transition: background 0.1s;
+  }
+  .folders-dropdown-item:hover { background: var(--surface3); color: var(--text); }
+
   /* Token success state */
   .token-success {
     display: flex; align-items: center; gap: 10px;
@@ -988,10 +1024,9 @@
         </div>
       </div>
       <div class="detail-field">
-        <div class="detail-field-label">Dossier virtuel</div>
-        <select class="select-input" id="editFolder" onchange="moveFileToFolder()">
-          <option value="">— Aucun dossier —</option>
-        </select>
+        <div class="detail-field-label">Dossiers virtuels</div>
+        <div id="detailFoldersList" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
+        <div id="detailFoldersAdd" style="display:flex;flex-wrap:wrap;gap:4px"></div>
       </div>
       <div class="detail-field">
         <div class="detail-field-label">Fichier original</div>
@@ -1512,7 +1547,7 @@ async function scanPCloud() {
           originalName: f.name,
           originalPath: f.path,
           alias: f.name.replace(/\.[^.]+$/, ''),
-          notes: '', tags: [], folder: '',
+          notes: '', tags: [], folders: [],
           pcloudId: f.id || null,
           size: f.size || 0,
           duration: null
@@ -1599,12 +1634,16 @@ function render() {
     renderFiles();
     renderBreadcrumb();
   }
-  updateFolderSelect();
+  // Refresh folder chips in detail panel if a file is selected
+  if (state.selectedFile) {
+    const f = state.files.find(f => f.id === state.selectedFile);
+    if (f) renderDetailFolders(f);
+  }
 }
 
 function renderSidebar() {
   document.getElementById('folderList').innerHTML = state.folders.map(f => {
-    const count = state.files.filter(file => file.folder === f.id).length;
+    const count = state.files.filter(file => (file.folders||[file.folder]).includes(f.id)).length;
     const active = state.selectedFolder === f.id;
     return `<div class="folder-item ${active?'active':''}" onclick="selectFolder('${f.id}')" style="${active?`color:${f.color}`:''}">
       <span class="folder-icon">${folderSVG(14, f.color)}</span>
@@ -1632,7 +1671,7 @@ function renderSidebar() {
 
 function renderFiles() {
   let files = state.files;
-  if (state.selectedFolder !== 'all') files = files.filter(f => f.folder === state.selectedFolder);
+  if (state.selectedFolder !== 'all') files = files.filter(f => (f.folders||[f.folder]).includes(state.selectedFolder));
   if (state.selectedTags.length > 0) files = files.filter(f => state.selectedTags.every(t => f.tags.includes(t)));
   if (state.search) {
     const s = state.search.toLowerCase();
@@ -1706,6 +1745,8 @@ function selectFile(id) {
   state.selectedFile = id;
   const f = state.files.find(f => f.id === id);
   if (!f) return;
+  // Migrate legacy single folder to array
+  if (!f.folders) f.folders = f.folder ? [f.folder] : [];
   document.getElementById('detailPanel').classList.remove('hidden');
   document.getElementById('detailAlias').textContent = f.alias || f.originalName;
   document.getElementById('detailOriginal').textContent = f.originalName;
@@ -1715,8 +1756,7 @@ function selectFile(id) {
   document.getElementById('detailFooterPlay').style.display = 'flex';
   document.getElementById('detailFooterImport').style.display = 'none';
   renderDetailTags(f);
-  updateFolderSelect();
-  document.getElementById('editFolder').value = f.folder || '';
+  renderDetailFolders(f);
   if (appMode === 'library') renderFiles();
 }
 
@@ -1735,10 +1775,49 @@ function updateSelectedFile() {
   save(); renderFiles(); renderSidebar();
 }
 
-function moveFileToFolder() {
-  if (!state.selectedFile) return;
-  const f = state.files.find(f => f.id === state.selectedFile);
-  if (f) { f.folder = document.getElementById('editFolder').value; save(); renderSidebar(); renderFiles(); }
+function renderDetailFolders(f) {
+  const assigned = document.getElementById('detailFoldersList');
+  const addArea = document.getElementById('detailFoldersAdd');
+  if (!f.folders) f.folders = f.folder ? [f.folder] : [];
+
+  // Assigned folders as removable chips
+  assigned.innerHTML = f.folders.map(fid => {
+    const vf = state.folders.find(v => v.id === fid);
+    if (!vf) return '';
+    return `<span class="folder-chip">
+      <span class="chip-dot" style="background:${vf.color}"></span>
+      ${vf.name}
+      <span class="chip-remove" onclick="removeFileFromFolder('${f.id}','${fid}')">✕</span>
+    </span>`;
+  }).join('');
+
+  // Available folders to add
+  const available = state.folders.filter(vf => !f.folders.includes(vf.id));
+  if (available.length > 0) {
+    addArea.innerHTML = available.map(vf =>
+      `<span class="folder-chip-add" onclick="addFileToFolder('${f.id}','${vf.id}')">
+        <span style="width:6px;height:6px;border-radius:50%;background:${vf.color};display:inline-block"></span>
+        + ${vf.name}
+      </span>`
+    ).join('');
+  } else {
+    addArea.innerHTML = '';
+  }
+}
+
+function addFileToFolder(fileId, folderId) {
+  const f = state.files.find(f => f.id === fileId);
+  if (!f) return;
+  if (!f.folders) f.folders = f.folder ? [f.folder] : [];
+  if (!f.folders.includes(folderId)) { f.folders.push(folderId); save(); renderDetailFolders(f); renderSidebar(); renderFiles(); }
+}
+
+function removeFileFromFolder(fileId, folderId) {
+  const f = state.files.find(f => f.id === fileId);
+  if (!f) return;
+  if (!f.folders) f.folders = [];
+  f.folders = f.folders.filter(id => id !== folderId);
+  save(); renderDetailFolders(f); renderSidebar(); renderFiles();
 }
 
 function handleTagInput(e) { if (e.key === 'Enter') addTagToSelected(); }
@@ -1883,6 +1962,26 @@ async function explorerGoTo(path) {
     const AUDIO_EXTS = ['wav','mp3','aif','aiff','flac','ogg','m4a','opus','wv'];
     const files = contents.filter(f => !f.isfolder && AUDIO_EXTS.includes(f.name.split('.').pop().toLowerCase()));
 
+    // Auto-sync: if a file was renamed/moved on pCloud, update our records
+    let syncChanged = false;
+    files.forEach(pf => {
+      const match = state.files.find(sf =>
+        (sf.pcloudId && sf.pcloudId === pf.fileid) ||   // match by fileid (stable)
+        sf.originalPath === pf.path                       // fallback: path match
+      );
+      if (match) {
+        // Store fileid if not already set
+        if (!match.pcloudId) { match.pcloudId = pf.fileid; syncChanged = true; }
+        // Update name/path if they changed on pCloud
+        if (match.originalName !== pf.name || match.originalPath !== pf.path) {
+          match.originalName = pf.name;
+          match.originalPath = pf.path;
+          syncChanged = true;
+        }
+      }
+    });
+    if (syncChanged) { save(); }
+
     renderExplorer(folders, files);
   } catch(e) {
     grid.innerHTML = `<div style="padding:40px;text-align:center;font-size:13px;color:var(--danger);font-family:'DM Mono',monospace">Erreur: ${e.message}</div>`;
@@ -1931,28 +2030,38 @@ function renderExplorerFolderRow(f) {
 }
 
 function renderExplorerFileCard(f) {
-  const imported = state.files.find(sf => sf.originalPath === f.path);
+  const imported = state.files.find(sf => (sf.pcloudId && sf.pcloudId === f.fileid) || sf.originalPath === f.path);
   const bars = Array.from({length:28}).map(() => `<div class="wave-bar" style="height:${Math.floor(Math.pow(Math.random(),0.6)*80+8)}%"></div>`).join('');
   const displayName = imported ? (imported.alias || imported.originalName.replace(/\.[^.]+$/,'')) : f.name.replace(/\.[^.]+$/,'');
   const sel = state.selectedFile === (imported?.id || f.path);
 
-  return `<div class="explorer-file ${imported?'imported':''} ${sel?'selected':''}" onclick="explorerSelectFile('${(imported?.id||'').replace(/'/g,"\\'")}','${f.path.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'")}',${f.size||0})">
+  // Virtual folder chips
+  let folderChips = '';
+  if (imported) {
+    const fileFolders = imported.folders || (imported.folder ? [imported.folder] : []);
+    folderChips = fileFolders.map(fid => {
+      const vf = state.folders.find(v => v.id === fid);
+      return vf ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:10px;font-size:10px;font-family:'DM Mono',monospace;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:var(--text2)"><span style="width:5px;height:5px;border-radius:50%;background:${vf.color};flex-shrink:0"></span>${vf.name}</span>` : '';
+    }).join('');
+  }
+
+  return `<div class="explorer-file ${imported?'imported':''} ${sel?'selected':''}" onclick="explorerSelectFile('${(imported?.id||'').replace(/'/g,"\\'")}','${f.path.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'")}',${f.size||0},${f.fileid||0})">
     <div class="explorer-waveform">${bars}</div>
     <div class="explorer-name">${displayName}</div>
-    ${imported ? `<div class="explorer-original">${f.name}</div>` : ''}
+    <div class="explorer-original" style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:${folderChips||!imported?'6px':'2px'}">${f.name}</div>
+    ${folderChips ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px">${folderChips}</div>` : ''}
     <div class="explorer-badges">
-      ${imported ? `<span class="explorer-badge-imported">✓ dans bibliothèque</span>` : `<span class="explorer-badge-new">Non importé</span>`}
-      ${imported && imported.tags.length ? imported.tags.slice(0,2).map(t=>`<span class="file-tag">${t}</span>`).join('') : ''}
+      ${imported ? `<span class="explorer-badge-imported">✓</span>` : `<span class="explorer-badge-new">Non importé</span>`}
     </div>
   </div>`;
 }
 
 function renderExplorerFileRow(f) {
-  const imported = state.files.find(sf => sf.originalPath === f.path);
+  const imported = state.files.find(sf => (sf.pcloudId && sf.pcloudId === f.fileid) || sf.originalPath === f.path);
   const displayName = imported ? (imported.alias || f.name.replace(/\.[^.]+$/,'')) : f.name.replace(/\.[^.]+$/,'');
   const sel = state.selectedFile === (imported?.id || f.path);
 
-  return `<div class="explorer-row ${imported?'imported':''} ${sel?'selected':''}" onclick="explorerSelectFile('${(imported?.id||'').replace(/'/g,"\\'")}','${f.path.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'")}',${f.size||0})">
+  return `<div class="explorer-row ${imported?'imported':''} ${sel?'selected':''}" onclick="explorerSelectFile('${(imported?.id||'').replace(/'/g,"\\'")}','${f.path.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'")}',${f.size||0},${f.fileid||0})">
     <span style="font-size:14px;width:20px;text-align:center;color:var(--text3)">♪</span>
     <span style="font-family:'Funnel Display',sans-serif;font-size:13px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${displayName}</span>
     ${imported ? `<span class="explorer-badge-imported">✓</span>` : `<span class="explorer-badge-new">+</span>`}
@@ -1960,21 +2069,18 @@ function renderExplorerFileRow(f) {
   </div>`;
 }
 
-function explorerSelectFile(importedId, path, name, size) {
+function explorerSelectFile(importedId, path, name, size, fileid) {
   if (importedId) {
-    // Already in library — select it normally
     state.selectedFile = importedId;
     selectFile(importedId);
   } else {
-    // Not yet imported — show quick import panel
     state.selectedFile = path;
-    showQuickImport(path, name, size);
+    showQuickImport(path, name, size, fileid);
   }
-  // Refresh to show selection
   if (appMode === 'explorer') explorerGoTo(explorerPath);
 }
 
-function showQuickImport(path, name, size) {
+function showQuickImport(path, name, size, fileid) {
   const panel = document.getElementById('detailPanel');
   panel.classList.remove('hidden');
   document.getElementById('detailAlias').textContent = name.replace(/\.[^.]+$/, '');
@@ -1983,8 +2089,8 @@ function showQuickImport(path, name, size) {
   document.getElementById('editAlias').value = name.replace(/\.[^.]+$/, '');
   document.getElementById('editNotes').value = '';
   document.getElementById('detailTagsList').innerHTML = '';
-  updateFolderSelect();
-  document.getElementById('editFolder').value = '';
+  document.getElementById('detailFoldersList').innerHTML = '';
+  document.getElementById('detailFoldersAdd').innerHTML = '';
 
   // Change footer to show Import button
   document.getElementById('detailFooterPlay').style.display = 'none';
@@ -1992,6 +2098,7 @@ function showQuickImport(path, name, size) {
   document.getElementById('detailFooterImport').dataset.path = path;
   document.getElementById('detailFooterImport').dataset.name = name;
   document.getElementById('detailFooterImport').dataset.size = size;
+  document.getElementById('detailFooterImport').dataset.fileid = fileid || '';
 }
 
 function importFromDetail() {
@@ -2004,13 +2111,13 @@ function importFromDetail() {
 
   const alias = document.getElementById('editAlias').value || name.replace(/\.[^.]+$/, '');
   const notes = document.getElementById('editNotes').value;
-  const folder = document.getElementById('editFolder').value;
 
   const newFile = {
     id: 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2),
     originalName: name, originalPath: path,
-    alias, notes, tags: [], folder,
-    pcloudId: null, size, duration: null
+    alias, notes, tags: [], folders: [],
+    pcloudId: parseInt(btn.dataset.fileid) || null,
+    size, duration: null
   };
   state.files.push(newFile);
   save();
