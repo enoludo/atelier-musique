@@ -1958,9 +1958,9 @@ async function explorerGoTo(path) {
       explorerCache[path] = contents;
     }
 
-    const folders = contents.filter(f => f.isfolder);
+    const folders = contents.filter(f => f.isfolder).sort((a,b) => a.name.localeCompare(b.name, 'fr', {sensitivity:'base'}));
     const AUDIO_EXTS = ['wav','mp3','aif','aiff','flac','ogg','m4a','opus','wv'];
-    const files = contents.filter(f => !f.isfolder && AUDIO_EXTS.includes(f.name.split('.').pop().toLowerCase()));
+    const files = contents.filter(f => !f.isfolder && AUDIO_EXTS.includes(f.name.split('.').pop().toLowerCase())).sort((a,b) => a.name.localeCompare(b.name, 'fr', {sensitivity:'base'}));
 
     // Auto-sync: if a file was renamed/moved on pCloud, update our records
     let syncChanged = false;
