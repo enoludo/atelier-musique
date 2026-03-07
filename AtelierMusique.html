@@ -1207,6 +1207,7 @@ async function loadFromPCloud() {
   setSyncStatus('syncing', 'Chargement…');
   try {
     const list = await pcloudApi('listfolder', { path: '/', nofiles: 0 });
+    console.log('listfolder response:', JSON.stringify(list));
 
     if (list.result === 1000 || list.result === 2094) {
       localStorage.removeItem('am_auth');
@@ -1343,6 +1344,7 @@ async function pcloudApi(method, params = {}) {
   const r = await fetch(url.toString());
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const data = await r.json();
+  console.log(`pcloudApi [${method}] result:`, data.result, data.error || '');
   // Detect expired/invalid token
   if (data.result === 1000 || data.result === 2094) {
     localStorage.removeItem('am_auth');
