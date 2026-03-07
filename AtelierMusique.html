@@ -1112,11 +1112,11 @@ async function connectWithPassword() {
     const passwordDigest = await sha1hex(password + usernameSha1 + digest);
 
     // Step 3 — login with digest
+    // authexpire not set = permanent token
     const loginUrl = `https://${server}/userinfo?getauth=1&logout=1`
       + `&username=${encodeURIComponent(email)}`
       + `&digest=${encodeURIComponent(digest)}`
-      + `&passworddigest=${encodeURIComponent(passwordDigest)}`
-      + `&authexpire=0`;
+      + `&passworddigest=${encodeURIComponent(passwordDigest)}`;
 
     const loginRes = await fetch(loginUrl);
     const loginData = await loginRes.json();
@@ -1205,8 +1205,19 @@ async function load() {
 async function loadFromPCloud() {
   setSyncStatus('syncing', 'Chargement…');
   try {
-    // Try to find the DB file
     const list = await pcloudApi('listfolder', { path: '/', nofiles: 0 });
+
+    // Token invalid — clear and ask to reconnect
+    if (list.result === 1000 || list.result === 2094 || list.result === 2000) {
+      localStorage.removeItem('am_auth');
+      state.pcloud.token = null;
+      state.pcloud.connected = false;
+      updateConnectionBadge(false);
+      document.getElementById('syncIndicator').style.display = 'none';
+      showToast('Session expirée — veuillez vous reconnecter');
+      return;
+    }
+
     if (list.result !== 0) throw new Error(list.error);
 
     const dbFile = (list.metadata?.contents || []).find(f => !f.isfolder && f.name === DB_FILENAME);
@@ -1332,7 +1343,17 @@ async function pcloudApi(method, params = {}) {
   Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
   const r = await fetch(url.toString());
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
+  const data = await r.json();
+  // Detect expired/invalid token
+  if (data.result === 1000 || data.result === 2094) {
+    localStorage.removeItem('am_auth');
+    state.pcloud.token = null;
+    state.pcloud.connected = false;
+    updateConnectionBadge(false);
+    document.getElementById('syncIndicator').style.display = 'none';
+    throw new Error('Session expirée — veuillez vous reconnecter');
+  }
+  return data;
 }
 
 async function scanPCloud() {
