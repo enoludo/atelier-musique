@@ -762,7 +762,80 @@
   }
   .color-swatch.selected { border-color: var(--text); transform: scale(1.15); }
 
-  .folder-browser-item {
+  .explorer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+  }
+  .explorer-list { display: flex; flex-direction: column; gap: 2px; }
+
+  .explorer-folder {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .explorer-folder:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .explorer-folder-icon { font-size: 24px; }
+  .explorer-folder-name { font-family: 'Funnel Display', sans-serif; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .explorer-folder-count { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+  .explorer-file {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .explorer-file::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .explorer-file:hover { border-color: var(--text3); transform: translateY(-1px); }
+  .explorer-file:hover::before { opacity: 1; }
+  .explorer-file.imported { border-color: rgba(232,255,71,0.3); }
+  .explorer-file.imported::before { opacity: 0.5; }
+  .explorer-file.selected { border-color: var(--accent); background: rgba(232,255,71,0.04); }
+  .explorer-file.selected::before { opacity: 1; }
+
+  .explorer-waveform {
+    height: 28px; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 1.5px;
+  }
+  .explorer-file:hover .wave-bar,
+  .explorer-file.imported .wave-bar { background: var(--accent); opacity: 0.7; }
+  .explorer-file.selected .wave-bar { background: var(--accent); opacity: 1; }
+
+  .explorer-name { font-family: 'Funnel Display', sans-serif; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
+  .explorer-original { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 6px; }
+  .explorer-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+  .explorer-badge-imported { font-size: 10px; padding: 1px 7px; border-radius: 10px; background: rgba(232,255,71,0.1); color: var(--accent); border: 1px solid rgba(232,255,71,0.3); font-family: 'DM Mono', monospace; }
+  .explorer-badge-new { font-size: 10px; padding: 1px 7px; border-radius: 10px; background: var(--surface3); color: var(--text3); border: 1px solid var(--border); font-family: 'DM Mono', monospace; }
+
+  /* List view for explorer */
+  .explorer-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 14px; border-radius: 6px; cursor: pointer;
+    border: 1px solid transparent; transition: all 0.15s;
+  }
+  .explorer-row:hover { background: var(--surface); border-color: var(--border); }
+  .explorer-row.selected { background: var(--surface); border-color: var(--accent); }
+  .explorer-row.imported { border-left: 2px solid rgba(232,255,71,0.4); }
+
+  .section-divider {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    text-transform: uppercase; letter-spacing: 2px; color: var(--text3);
+    padding: 12px 0 8px; margin-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
     display: flex; align-items: center; gap: 10px;
     padding: 9px 14px;
     cursor: pointer;
@@ -818,10 +891,22 @@
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-section">
-      <div class="sidebar-title">Bibliothèques</div>
-      <div class="folder-item active" onclick="selectFolder('all')" id="folder-all">
-        <span class="folder-icon">◈</span> Tous les sons
+      <div class="sidebar-title">Mode</div>
+      <div class="folder-item active" onclick="setMode('explorer')" id="mode-explorer">
+        <span class="folder-icon">◈</span> Explorateur pCloud
+      </div>
+      <div class="folder-item" onclick="setMode('library')" id="mode-library">
+        <span class="folder-icon">◫</span> Ma bibliothèque
         <span class="folder-count" id="count-all">0</span>
+      </div>
+    </div>
+
+    <!-- VIRTUAL FOLDERS (library mode) -->
+    <div class="sidebar-section" id="virtualFoldersSection" style="display:none">
+      <div class="sidebar-title">Dossiers virtuels</div>
+      <div class="folder-item" onclick="selectFolder('all')" id="folder-all">
+        <span class="folder-icon">◈</span> Tous les sons
+        <span class="folder-count" id="count-library">0</span>
       </div>
       <div id="folderList"></div>
       <button class="btn-add-folder" onclick="showAddFolderModal()">
@@ -858,15 +943,27 @@
       <button class="btn" onclick="exportLibrary()">↓ Exporter</button>
     </div>
 
+    <!-- BREADCRUMB -->
     <div class="breadcrumb" id="breadcrumb">
-      <span onclick="selectFolder('all')">Tous les sons</span>
+      <span onclick="explorerGoTo('/')" style="cursor:pointer">pCloud</span>
     </div>
 
-    <div class="file-area" id="fileArea">
+    <!-- EXPLORER VIEW -->
+    <div class="file-area" id="explorerArea">
+      <div class="empty-state" id="explorerEmpty" style="display:none">
+        <div class="empty-icon">☁</div>
+        <div class="empty-title">Connectez-vous à pCloud</div>
+        <div class="empty-sub">Utilisez le bouton "Connecter pCloud" pour accéder à vos fichiers.</div>
+      </div>
+      <div id="explorerGrid"></div>
+    </div>
+
+    <!-- LIBRARY VIEW -->
+    <div class="file-area" id="libraryArea" style="display:none">
       <div class="empty-state" id="emptyState">
         <div class="empty-icon">♫</div>
         <div class="empty-title">Bibliothèque vide</div>
-        <div class="empty-sub">Connectez votre pCloud et importez des fichiers pour commencer à organiser vos sessions.</div>
+        <div class="empty-sub">Naviguez dans l'explorateur et importez des fichiers pour commencer.</div>
       </div>
       <div id="fileGrid" class="file-grid" style="display:none"></div>
     </div>
@@ -908,8 +1005,11 @@
       </div>
     </div>
     <div class="detail-footer">
-      <button class="btn accent" onclick="playSelectedFile()">▶ Écouter</button>
-      <button class="btn" onclick="closeDetail()">✕ Fermer</button>
+      <button class="btn accent" id="detailFooterPlay" onclick="playSelectedFile()">▶ Écouter</button>
+      <div id="detailFooterImport" style="display:none;flex:1;gap:8px">
+        <button class="btn primary" style="flex:1;justify-content:center" onclick="importFromDetail()">+ Ajouter à la bibliothèque</button>
+      </div>
+      <button class="btn" onclick="closeDetail()">✕</button>
     </div>
   </div>
 </div>
@@ -1501,7 +1601,16 @@ function selectFolderColor(color, el) {
 // ============================================================
 //  RENDER
 // ============================================================
-function render() { renderSidebar(); renderFiles(); renderBreadcrumb(); updateFolderSelect(); }
+function render() {
+  renderSidebar();
+  if (appMode === 'explorer') {
+    explorerGoTo(explorerPath);
+  } else {
+    renderFiles();
+    renderBreadcrumb();
+  }
+  updateFolderSelect();
+}
 
 function renderSidebar() {
   document.getElementById('folderList').innerHTML = state.folders.map(f => {
@@ -1515,6 +1624,7 @@ function renderSidebar() {
   }).join('');
 
   document.getElementById('count-all').textContent = state.files.length;
+  document.getElementById('count-library').textContent = state.files.length;
   document.getElementById('folder-all').className = 'folder-item' + (state.selectedFolder==='all'?' active':'');
 
   const allTags = [...new Set(state.files.flatMap(f => f.tags))];
@@ -1612,10 +1722,12 @@ function selectFile(id) {
   document.getElementById('detailPath').textContent = f.originalPath;
   document.getElementById('editAlias').value = f.alias || '';
   document.getElementById('editNotes').value = f.notes || '';
+  document.getElementById('detailFooterPlay').style.display = 'flex';
+  document.getElementById('detailFooterImport').style.display = 'none';
   renderDetailTags(f);
   updateFolderSelect();
   document.getElementById('editFolder').value = f.folder || '';
-  renderFiles();
+  if (appMode === 'library') renderFiles();
 }
 
 function renderDetailTags(f) {
@@ -1681,7 +1793,8 @@ function setView(v) {
   state.view = v;
   document.getElementById('gridBtn').className = 'view-btn' + (v==='grid'?' active':'');
   document.getElementById('listBtn').className = 'view-btn' + (v==='list'?' active':'');
-  renderFiles();
+  if (appMode === 'explorer') explorerGoTo(explorerPath);
+  else renderFiles();
 }
 
 function filterFiles() { state.search = document.getElementById('searchInput').value; renderFiles(); }
@@ -1723,9 +1836,214 @@ function showToast(msg) {
 }
 
 // ============================================================
-//  FOLDER BROWSER
+//  MODE SWITCHING (explorer / library)
 // ============================================================
-let browserCurrentPath = '/';
+let appMode = 'explorer';
+let explorerPath = '/';
+let explorerCache = {}; // path → contents
+
+function setMode(mode) {
+  appMode = mode;
+  document.getElementById('mode-explorer').className = 'folder-item' + (mode === 'explorer' ? ' active' : '');
+  document.getElementById('mode-library').className = 'folder-item' + (mode === 'library' ? ' active' : '');
+  document.getElementById('explorerArea').style.display = mode === 'explorer' ? 'flex' : 'none';
+  document.getElementById('libraryArea').style.display = mode === 'library' ? 'flex' : 'none';
+  document.getElementById('virtualFoldersSection').style.display = mode === 'library' ? 'block' : 'none';
+
+  if (mode === 'explorer') {
+    explorerGoTo(explorerPath);
+  } else {
+    renderBreadcrumb();
+    renderFiles();
+  }
+}
+
+// ============================================================
+//  EXPLORER
+// ============================================================
+async function explorerGoTo(path) {
+  explorerPath = path;
+  renderExplorerBreadcrumb(path);
+
+  const grid = document.getElementById('explorerGrid');
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div> Chargement…</div>';
+
+  if (!state.pcloud.connected) {
+    grid.innerHTML = '';
+    document.getElementById('explorerEmpty').style.display = 'flex';
+    return;
+  }
+  document.getElementById('explorerEmpty').style.display = 'none';
+
+  try {
+    // Use cache if available
+    let contents = explorerCache[path];
+    if (!contents) {
+      const data = await pcloudApi('listfolder', { path });
+      if (data.result !== 0) throw new Error(data.error);
+      contents = data.metadata?.contents || [];
+      explorerCache[path] = contents;
+    }
+
+    const folders = contents.filter(f => f.isfolder);
+    const AUDIO_EXTS = ['wav','mp3','aif','aiff','flac','ogg','m4a','opus','wv'];
+    const files = contents.filter(f => !f.isfolder && AUDIO_EXTS.includes(f.name.split('.').pop().toLowerCase()));
+
+    renderExplorer(folders, files);
+  } catch(e) {
+    grid.innerHTML = `<div style="padding:40px;text-align:center;font-size:13px;color:var(--danger);font-family:'DM Mono',monospace">Erreur: ${e.message}</div>`;
+  }
+}
+
+function renderExplorer(folders, files) {
+  const grid = document.getElementById('explorerGrid');
+  const isGrid = state.view === 'grid';
+  grid.className = isGrid ? 'explorer-grid' : 'explorer-list';
+
+  let html = '';
+
+  // Folders
+  if (folders.length > 0) {
+    if (!isGrid) html += `<div class="section-divider">Dossiers (${folders.length})</div>`;
+    html += folders.map(f => isGrid ? renderExplorerFolderCard(f) : renderExplorerFolderRow(f)).join('');
+  }
+
+  // Audio files
+  if (files.length > 0) {
+    if (!isGrid) html += `<div class="section-divider">Fichiers audio (${files.length})</div>`;
+    html += files.map(f => isGrid ? renderExplorerFileCard(f) : renderExplorerFileRow(f)).join('');
+  }
+
+  if (folders.length === 0 && files.length === 0) {
+    html = '<div class="empty-state" style="flex:1"><div class="empty-icon" style="opacity:.3">♫</div><div class="empty-title">Dossier vide</div><div class="empty-sub">Aucun fichier audio dans ce dossier.</div></div>';
+  }
+
+  grid.innerHTML = html;
+}
+
+function renderExplorerFolderCard(f) {
+  return `<div class="explorer-folder" ondblclick="explorerGoTo('${f.path.replace(/'/g,"\\'")}')">
+    <div class="explorer-folder-icon">◈</div>
+    <div class="explorer-folder-name">${f.name}</div>
+  </div>`;
+}
+
+function renderExplorerFolderRow(f) {
+  return `<div class="explorer-row" ondblclick="explorerGoTo('${f.path.replace(/'/g,"\\'")}')">
+    <span style="font-size:16px;width:24px;text-align:center;color:var(--accent)">◈</span>
+    <span style="font-family:'Funnel Display',sans-serif;font-weight:600;font-size:13px;flex:1">${f.name}</span>
+    <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Ouvrir →</span>
+  </div>`;
+}
+
+function renderExplorerFileCard(f) {
+  const imported = state.files.find(sf => sf.originalPath === f.path);
+  const bars = Array.from({length:16}).map(() => `<div class="wave-bar" style="height:${Math.floor(Math.random()*70+10)}%"></div>`).join('');
+  const displayName = imported ? (imported.alias || imported.originalName.replace(/\.[^.]+$/,'')) : f.name.replace(/\.[^.]+$/,'');
+  const sel = state.selectedFile === (imported?.id || f.path);
+
+  return `<div class="explorer-file ${imported?'imported':''} ${sel?'selected':''}" onclick="explorerSelectFile('${(imported?.id||'').replace(/'/g,"\\'")}','${f.path.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'")}',${f.size||0})">
+    <div class="explorer-waveform">${bars}</div>
+    <div class="explorer-name">${displayName}</div>
+    ${imported ? `<div class="explorer-original">${f.name}</div>` : ''}
+    <div class="explorer-badges">
+      ${imported ? `<span class="explorer-badge-imported">✓ dans bibliothèque</span>` : `<span class="explorer-badge-new">Non importé</span>`}
+      ${imported && imported.tags.length ? imported.tags.slice(0,2).map(t=>`<span class="file-tag">${t}</span>`).join('') : ''}
+    </div>
+  </div>`;
+}
+
+function renderExplorerFileRow(f) {
+  const imported = state.files.find(sf => sf.originalPath === f.path);
+  const displayName = imported ? (imported.alias || f.name.replace(/\.[^.]+$/,'')) : f.name.replace(/\.[^.]+$/,'');
+  const sel = state.selectedFile === (imported?.id || f.path);
+
+  return `<div class="explorer-row ${imported?'imported':''} ${sel?'selected':''}" onclick="explorerSelectFile('${(imported?.id||'').replace(/'/g,"\\'")}','${f.path.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'")}',${f.size||0})">
+    <span style="font-size:14px;width:20px;text-align:center;color:var(--text3)">♪</span>
+    <span style="font-family:'Funnel Display',sans-serif;font-size:13px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${displayName}</span>
+    ${imported ? `<span class="explorer-badge-imported">✓</span>` : `<span class="explorer-badge-new">+</span>`}
+    <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${formatSize(f.size)}</span>
+  </div>`;
+}
+
+function explorerSelectFile(importedId, path, name, size) {
+  if (importedId) {
+    // Already in library — select it normally
+    state.selectedFile = importedId;
+    selectFile(importedId);
+  } else {
+    // Not yet imported — show quick import panel
+    state.selectedFile = path;
+    showQuickImport(path, name, size);
+  }
+  // Refresh to show selection
+  if (appMode === 'explorer') explorerGoTo(explorerPath);
+}
+
+function showQuickImport(path, name, size) {
+  const panel = document.getElementById('detailPanel');
+  panel.classList.remove('hidden');
+  document.getElementById('detailAlias').textContent = name.replace(/\.[^.]+$/, '');
+  document.getElementById('detailOriginal').textContent = name;
+  document.getElementById('detailPath').textContent = path;
+  document.getElementById('editAlias').value = name.replace(/\.[^.]+$/, '');
+  document.getElementById('editNotes').value = '';
+  document.getElementById('detailTagsList').innerHTML = '';
+  updateFolderSelect();
+  document.getElementById('editFolder').value = '';
+
+  // Change footer to show Import button
+  document.getElementById('detailFooterPlay').style.display = 'none';
+  document.getElementById('detailFooterImport').style.display = 'flex';
+  document.getElementById('detailFooterImport').dataset.path = path;
+  document.getElementById('detailFooterImport').dataset.name = name;
+  document.getElementById('detailFooterImport').dataset.size = size;
+}
+
+function importFromDetail() {
+  const btn = document.getElementById('detailFooterImport');
+  const path = btn.dataset.path;
+  const name = btn.dataset.name;
+  const size = parseInt(btn.dataset.size) || 0;
+
+  if (!path || state.files.find(f => f.originalPath === path)) return;
+
+  const alias = document.getElementById('editAlias').value || name.replace(/\.[^.]+$/, '');
+  const notes = document.getElementById('editNotes').value;
+  const folder = document.getElementById('editFolder').value;
+
+  const newFile = {
+    id: 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+    originalName: name, originalPath: path,
+    alias, notes, tags: [], folder,
+    pcloudId: null, size, duration: null
+  };
+  state.files.push(newFile);
+  save();
+  state.selectedFile = newFile.id;
+  selectFile(newFile.id);
+  explorerCache = {}; // invalidate cache to refresh badges
+  if (appMode === 'explorer') explorerGoTo(explorerPath);
+  showToast(`"${alias}" ajouté à la bibliothèque ✓`);
+}
+
+function renderExplorerBreadcrumb(path) {
+  const bc = document.getElementById('breadcrumb');
+  const parts = path.split('/').filter(Boolean);
+  let html = `<span onclick="explorerGoTo('/')">pCloud</span>`;
+  let cumPath = '';
+  parts.forEach((p, i) => {
+    cumPath += '/' + p;
+    const cp = cumPath;
+    html += `<span style="opacity:.4"> / </span>`;
+    if (i === parts.length - 1) {
+      html += `<span class="current">${p}</span>`;
+    } else {
+      html += `<span onclick="explorerGoTo('${cp}')">${p}</span>`;
+    }
+  });
+  bc.innerHTML = html;
+}
 
 async function showImportModal() {
   browserCurrentPath = '/';
