@@ -1122,17 +1122,17 @@ async function connectWithPassword() {
     const loginRes = await fetch(loginUrl);
     const loginData = await loginRes.json();
 
-    if (loginData.result !== 0 || !loginData.token) {
+    if (loginData.result !== 0 || !loginData.auth) {
       throw new Error(loginData.error || 'Identifiants incorrects');
     }
 
     // Got a permanent token — store it, never the password
-    state.pcloud.token = loginData.token;
+    state.pcloud.token = loginData.auth;
     state.pcloud.server = server;
     state.pcloud.connected = true;
 
-    localStorage.setItem('am_auth', JSON.stringify({ token: loginData.token, server }));
-    updateConnectionBadge(true, loginData.email);
+    localStorage.setItem('am_auth', JSON.stringify({ token: loginData.auth, server }));
+    updateConnectionBadge(true, loginData.email || email);
 
     // Clear password immediately
     document.getElementById('loginPassword').value = '';
