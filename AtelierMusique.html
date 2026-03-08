@@ -388,8 +388,6 @@
     flex-direction: column;
     gap: 8px;
     min-width: 0;
-    /* Hauteur fixe identique aux sound-card */
-    height: 140px;
     box-sizing: border-box;
   }
   .sound-folder-card:hover { border-color: var(--text2); transform: translateY(-1px); }
@@ -417,32 +415,24 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
-    /* Hauteur fixe = stabilité de la grille */
-    height: 140px;
     box-sizing: border-box;
     position: relative;
-    overflow: hidden;
   }
   .sound-card:hover { border-color: var(--text2); transform: translateY(-1px); }
   .sound-card.selected { border-color: var(--accent); background: rgba(255,255,255,0.02); }
   .sound-card.imported { border-color: rgba(255,255,255,0.20); }
-  .sound-card:hover .wave-bar,
-  .sound-card.selected .wave-bar { background: rgba(255,255,255,0.72); }
+  .sound-card:hover .sound-waveform,
+  .sound-card.selected .sound-waveform { color: rgba(255,255,255,0.65); }
 
-  /* Waveform */
+  /* Sound icon */
   .sound-waveform {
     height: 26px;
     margin-bottom: 8px;
     display: flex;
     align-items: center;
-    gap: 1px;
     flex-shrink: 0;
-  }
-  .wave-bar {
-    width: 2px; flex: none;
-    background: rgba(255,255,255,0.13);
-    border-radius: 1px;
-    transition: background 0.2s;
+    color: rgba(255,255,255,0.18);
+    transition: color 0.2s;
   }
 
   /* Texte card */
@@ -597,7 +587,23 @@
   .detail-header {
     padding: 20px 20px 16px;
     border-bottom: 1px solid var(--border);
+    position: relative;
   }
+  .detail-close {
+    position: absolute;
+    top: 14px; right: 14px;
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text3);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+  .detail-close:hover { background: var(--surface2); color: var(--text); border-color: var(--text3); }
 
   .detail-label {
     font-family: 'DM Mono', monospace;
@@ -886,6 +892,14 @@
   .folder-browser-item .fbi-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .folder-browser-item .fbi-nav { font-size: 11px; color: var(--text3); flex-shrink: 0; }
 
+  .detail-create-folder-btn {
+    font-size: 10px; font-family: 'DM Mono', monospace;
+    padding: 2px 8px; border-radius: 8px;
+    border: 1px dashed var(--border); color: var(--text3);
+    background: none; cursor: pointer; transition: all 0.15s;
+  }
+  .detail-create-folder-btn:hover { border-color: var(--accent); color: var(--accent); }
+
   /* folder chips in detail panel */
   .folder-chip {
     display: inline-flex; align-items: center; gap: 5px;
@@ -934,6 +948,123 @@
     font-size: 13px;
     color: var(--success);
   }
+
+  /* ══ PLAYER BAR ══ */
+  .player-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 0 20px;
+    z-index: 200;
+    backdrop-filter: blur(12px);
+  }
+
+  /* Push app content up when player is visible */
+  body.player-open .app { padding-bottom: 60px; }
+
+  .player-info {
+    width: 200px;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .player-name {
+    font-family: 'Funnel Display', sans-serif;
+    font-size: 13px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--text);
+  }
+  .player-original {
+    font-size: 10px; color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+
+  .player-controls {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .player-btn {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .player-btn:hover { background: var(--surface3); border-color: var(--text3); }
+
+  .player-progress-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+  .player-time {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text3);
+    flex-shrink: 0;
+    width: 34px;
+  }
+  .player-time:last-child { text-align: right; }
+
+  .player-progress {
+    flex: 1;
+    height: 3px;
+    background: var(--surface3);
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+  }
+  .player-progress:hover { height: 5px; margin: -1px 0; }
+  .player-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.1s linear;
+    pointer-events: none;
+  }
+
+  .player-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .player-volume {
+    width: 80px;
+    height: 3px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .player-close-btn {
+    width: 24px; height: 24px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--text3);
+    font-size: 11px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .player-close-btn:hover { background: var(--surface2); color: var(--text); }
+
 </style>
 </head>
 <body>
@@ -942,7 +1073,7 @@
 <header>
   <div class="logo">
     <div class="logo-dot"></div>
-    Atelier<em>Musique</em>
+    AM
   </div>
   <div class="header-right">
     <div class="sync-indicator" id="syncIndicator" style="display:none">
@@ -1043,6 +1174,7 @@
   <!-- DETAIL PANEL -->
   <div class="detail-panel hidden" id="detailPanel">
     <div class="detail-header">
+      <button class="detail-close" onclick="closeDetail()" title="Fermer">✕</button>
       <div class="detail-label">Sélection</div>
       <div class="detail-alias" id="detailAlias">—</div>
       <div class="detail-original" id="detailOriginal">—</div>
@@ -1065,9 +1197,29 @@
         </div>
       </div>
       <div class="detail-field">
-        <div class="detail-field-label">Dossiers virtuels</div>
+        <div class="detail-field-label" style="display:flex;align-items:center;justify-content:space-between">
+          Dossiers virtuels
+          <button class="detail-create-folder-btn" onclick="showInlineNewFolder()">+ nouveau</button>
+        </div>
         <div id="detailFoldersList" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div>
         <div id="detailFoldersAdd" style="display:flex;flex-wrap:wrap;gap:4px"></div>
+        <!-- Inline create folder form -->
+        <div id="inlineNewFolder" style="display:none;margin-top:10px;padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
+          <input type="text" id="inlineFolderName" class="detail-input" placeholder="Nom du dossier…" style="margin-bottom:8px"
+            onkeydown="if(event.key==='Enter') createFolderFromDetail(); if(event.key==='Escape') hideInlineNewFolder()">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="inlineFolderColors">
+            <span class="color-swatch selected" style="background:#47c8ff" onclick="selectInlineColor('#47c8ff',this)"></span>
+            <span class="color-swatch" style="background:#ff6b35" onclick="selectInlineColor('#ff6b35',this)"></span>
+            <span class="color-swatch" style="background:#b847ff" onclick="selectInlineColor('#b847ff',this)"></span>
+            <span class="color-swatch" style="background:#ff4784" onclick="selectInlineColor('#ff4784',this)"></span>
+            <span class="color-swatch" style="background:#44ff88" onclick="selectInlineColor('#44ff88',this)"></span>
+            <span class="color-swatch" style="background:#ffd447" onclick="selectInlineColor('#ffd447',this)"></span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn" style="flex:1;justify-content:center;font-size:12px" onclick="hideInlineNewFolder()">Annuler</button>
+            <button class="btn primary" style="flex:1;justify-content:center;font-size:12px" onclick="createFolderFromDetail()">Créer</button>
+          </div>
+        </div>
       </div>
       <div class="detail-field">
         <div class="detail-field-label">Fichier original</div>
@@ -1076,17 +1228,53 @@
     </div>
     <div class="detail-footer">
       <button class="btn accent" id="detailFooterPlay" onclick="playSelectedFile()">▶ Écouter</button>
-      <div id="detailFooterImport" style="display:none;flex:1;gap:8px">
-        <button class="btn primary" style="flex:1;justify-content:center" onclick="importFromDetail()">+ Ajouter à la bibliothèque</button>
+      <div id="detailFooterImport" style="display:none;flex-direction:column;flex:1;gap:6px">
+        <button class="btn primary" style="justify-content:center" onclick="importFromDetail()">+ Ajouter à la bibliothèque</button>
+        <button class="btn" style="justify-content:center" onclick="playExplorerFile()">▶ Écouter</button>
       </div>
-      <button class="btn" onclick="closeDetail()">✕</button>
     </div>
   </div>
 </div>
 
 <!-- ============================================================
-     MODAL: Connect pCloud (email + password)
+     PLAYER BAR (fixed bottom)
 ============================================================ -->
+<div class="player-bar" id="playerBar" style="display:none">
+  <audio id="audioEl" preload="none"></audio>
+
+  <!-- Track info -->
+  <div class="player-info">
+    <div class="player-name" id="playerName">—</div>
+    <div class="player-original" id="playerOriginal">—</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="player-controls">
+    <button class="player-btn" id="playerPlayBtn" onclick="playerToggle()">
+      <svg id="iconPlay" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+      <svg id="iconPause" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    </button>
+
+    <div class="player-progress-wrap">
+      <span class="player-time" id="playerCurrent">0:00</span>
+      <div class="player-progress" id="playerProgress" onclick="playerSeek(event)">
+        <div class="player-progress-fill" id="playerFill"></div>
+      </div>
+      <span class="player-time" id="playerDuration">—</span>
+    </div>
+  </div>
+
+  <!-- Volume + close -->
+  <div class="player-right">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text3);flex-shrink:0">
+      <polygon points="11,5 6,9 2,9 2,15 6,15 11,19"/>
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+    </svg>
+    <input type="range" class="player-volume" id="playerVolume" min="0" max="1" step="0.02" value="1" oninput="playerSetVolume(this.value)">
+    <button class="player-close-btn" onclick="playerStop()" title="Fermer">✕</button>
+  </div>
+</div>
 <div class="modal-overlay" id="connectModal">
   <div class="modal" style="max-width:440px">
     <div class="modal-title">Connecter pCloud</div>
@@ -1751,8 +1939,7 @@ function renderSoundCard(f, mode) {
   const size = f.size || 0;
   const fileid = f.fileid || f.pcloudId || 0;
   const selected = state.selectedFile === (id || f.path);
-  const bars = Array.from({length:28}).map(() =>
-    `<div class="wave-bar" style="height:${Math.floor(Math.pow(Math.random(),0.6)*80+8)}%"></div>`).join('');
+  const bars = soundSVG(22);
 
   const fileFolders = isNew ? [] : (f.folders || (f.folder ? [f.folder] : []));
   const folderChips = fileFolders.slice(0, 2).map(fid => {
@@ -1909,6 +2096,42 @@ function quickAddToFolder(fileId, folderId) {
   }
 }
 
+let inlineFolderColor = '#47c8ff';
+
+function showInlineNewFolder() {
+  document.getElementById('inlineNewFolder').style.display = 'block';
+  document.getElementById('inlineFolderName').value = '';
+  document.getElementById('inlineFolderName').focus();
+}
+function hideInlineNewFolder() {
+  document.getElementById('inlineNewFolder').style.display = 'none';
+}
+function selectInlineColor(color, el) {
+  inlineFolderColor = color;
+  document.querySelectorAll('#inlineFolderColors .color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+}
+function createFolderFromDetail() {
+  const name = document.getElementById('inlineFolderName').value.trim();
+  if (!name) return;
+  const newFolder = { id: 'dir_' + Date.now(), name, color: inlineFolderColor };
+  state.folders.push(newFolder);
+
+  // Auto-assigner au son courant
+  const f = state.files.find(f => f.id === state.selectedFile);
+  if (f) {
+    if (!f.folders) f.folders = f.folder ? [f.folder] : [];
+    f.folders.push(newFolder.id);
+  }
+
+  save();
+  renderSidebar();
+  if (f) renderDetailFolders(f);
+  renderFiles();
+  hideInlineNewFolder();
+  showToast(`Dossier "${name}" créé ✓`);
+}
+
 function renderDetailFolders(f) {
   const assigned = document.getElementById('detailFoldersList');
   const addArea = document.getElementById('detailFoldersAdd');
@@ -1983,10 +2206,117 @@ function closeDetail() {
   renderFiles();
 }
 
+// ============================================================
+//  PLAYER
+// ============================================================
+const audio = document.getElementById('audioEl') || new Audio();
+let playerFileId = null;
+
 function playSelectedFile() {
   if (!state.selectedFile) return;
   const f = state.files.find(f => f.id === state.selectedFile);
-  if (f) showToast(`▶ ${f.alias || f.originalName}\n(Lecture via lien signé pCloud — à venir)`);
+  if (!f) return;
+  playerPlay(f);
+}
+
+async function playerPlay(f) {
+  const bar = document.getElementById('playerBar');
+  const playBtn = document.getElementById('playerPlayBtn');
+
+  // Update info
+  document.getElementById('playerName').textContent = f.alias || f.originalName.replace(/\.[^.]+$/, '');
+  document.getElementById('playerOriginal').textContent = f.originalName;
+  document.getElementById('playerFill').style.width = '0%';
+  document.getElementById('playerCurrent').textContent = '0:00';
+  document.getElementById('playerDuration').textContent = '—';
+
+  // Show bar
+  bar.style.display = 'flex';
+  document.body.classList.add('player-open');
+  playerFileId = f.id;
+
+  // Show loading state
+  document.getElementById('iconPlay').style.display = 'none';
+  document.getElementById('iconPause').style.display = 'none';
+  playBtn.innerHTML += '<span id="playerSpinner" style="font-size:11px;font-family:DM Mono,monospace;color:var(--text3)">…</span>';
+
+  try {
+    let url;
+    if (!state.pcloud.connected) {
+      // Demo mode — use a silent placeholder
+      url = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+      showToast('Mode démo — connexion pCloud requise pour la lecture');
+    } else {
+      // Get streaming link from pCloud
+      const idParam = f.pcloudId ? { fileid: f.pcloudId } : { path: f.originalPath };
+      const res = await pcloudApi('getfilelink', idParam);
+      if (res.result !== 0) throw new Error(res.error || 'Lien indisponible');
+      // Build URL using the hosts returned by pCloud (not CDN)
+      const host = res.hosts[0];
+      url = `https://${host}${res.path}`;
+    }
+
+    audio.src = url;
+    audio.load();
+    await audio.play();
+    playerSetPlayIcon(true);
+  } catch(e) {
+    showToast(`Erreur lecture : ${e.message}`);
+    playerSetPlayIcon(false);
+  } finally {
+    document.getElementById('playerSpinner')?.remove();
+  }
+}
+
+function playerSetPlayIcon(playing) {
+  document.getElementById('iconPlay').style.display  = playing ? 'none'  : 'block';
+  document.getElementById('iconPause').style.display = playing ? 'block' : 'none';
+}
+
+function playerToggle() {
+  if (!audio.src) return;
+  if (audio.paused) { audio.play(); playerSetPlayIcon(true); }
+  else              { audio.pause(); playerSetPlayIcon(false); }
+}
+
+function playerSeek(e) {
+  if (!audio.duration) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  audio.currentTime = ratio * audio.duration;
+}
+
+function playerSetVolume(v) { audio.volume = parseFloat(v); }
+
+function playerStop() {
+  audio.pause();
+  audio.src = '';
+  playerFileId = null;
+  document.getElementById('playerBar').style.display = 'none';
+  document.body.classList.remove('player-open');
+}
+
+// Audio event listeners
+audio.addEventListener('timeupdate', () => {
+  if (!audio.duration) return;
+  const pct = (audio.currentTime / audio.duration) * 100;
+  document.getElementById('playerFill').style.width = pct + '%';
+  document.getElementById('playerCurrent').textContent = formatTime(audio.currentTime);
+});
+audio.addEventListener('loadedmetadata', () => {
+  document.getElementById('playerDuration').textContent = formatTime(audio.duration);
+});
+audio.addEventListener('ended', () => playerSetPlayIcon(false));
+audio.addEventListener('error', () => {
+  showToast('Impossible de lire ce fichier.');
+  playerSetPlayIcon(false);
+});
+
+function formatTime(s) {
+  if (!s || isNaN(s)) return '0:00';
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60).toString().padStart(2, '0');
+  return `${m}:${sec}`;
 }
 
 // ============================================================
@@ -2041,6 +2371,18 @@ function showToast(msg) {
 // ============================================================
 //  ICONS
 // ============================================================
+function soundSVG(size = 26) {
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+    <line x1="2"  y1="12" x2="2"  y2="12"/>
+    <line x1="5"  y1="9"  x2="5"  y2="15"/>
+    <line x1="8"  y1="6"  x2="8"  y2="18"/>
+    <line x1="11" y1="4"  x2="11" y2="20"/>
+    <line x1="14" y1="7"  x2="14" y2="17"/>
+    <line x1="17" y1="10" x2="17" y2="14"/>
+    <line x1="20" y1="11" x2="20" y2="13"/>
+  </svg>`;
+}
+
 function folderSVG(size=16, color='currentColor') {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>`;
 }
@@ -2076,8 +2418,8 @@ async function explorerGoTo(path) {
   grid.innerHTML = '<div class="loading"><div class="spinner"></div> Chargement…</div>';
 
   if (!state.pcloud.connected) {
-    grid.innerHTML = '';
-    document.getElementById('explorerEmpty').style.display = 'flex';
+    document.getElementById('explorerEmpty').style.display = 'none';
+    renderExplorerDemo();
     return;
   }
   document.getElementById('explorerEmpty').style.display = 'none';
@@ -2120,6 +2462,45 @@ async function explorerGoTo(path) {
   } catch(e) {
     grid.innerHTML = `<div style="padding:40px;text-align:center;font-size:13px;color:var(--danger);font-family:'DM Mono',monospace">Erreur: ${e.message}</div>`;
   }
+}
+
+function renderExplorerDemo() {
+  // Inject demo virtual folders if none exist
+  if (state.folders.length === 0) {
+    state.folders = [
+      { id: 'vf1', name: 'Textures', color: '#47c8ff' },
+      { id: 'vf2', name: 'Improvisations', color: '#ff6b35' },
+      { id: 'vf3', name: 'Field Rec', color: '#b847ff' },
+    ];
+  }
+  // Inject a few imported demo files
+  if (state.files.length === 0) {
+    state.files = [
+      { id: 'df1', originalName: 'drone_loop_long.aif', originalPath: '/01-ATELIER MUSIQUE/Sessions/drone_loop_long.aif', alias: 'Drone Loop', tags: ['drone','ambient'], folders: ['vf1'], notes: '', size: 42300000, pcloudId: 9001 },
+      { id: 'df2', originalName: 'guitar_impro_room.wav', originalPath: '/01-ATELIER MUSIQUE/Sessions/guitar_impro_room.wav', alias: 'Guitare Room', tags: ['impro'], folders: ['vf2','vf1'], notes: '', size: 78100000, pcloudId: 9002 },
+      { id: 'df3', originalName: 'field_rec_foret.wav', originalPath: '/01-ATELIER MUSIQUE/FieldRec/field_rec_foret.wav', alias: 'Forêt matin', tags: ['nature','field'], folders: ['vf3'], notes: '', size: 31000000, pcloudId: 9003 },
+    ];
+  }
+
+  const demoFolders = [
+    { name: 'Sessions', path: '/demo/Sessions', isfolder: true },
+    { name: 'FieldRec', path: '/demo/FieldRec', isfolder: true },
+    { name: 'Mixdowns', path: '/demo/Mixdowns', isfolder: true },
+  ];
+
+  const demoFiles = [
+    { name: 'drone_loop_long.aif',     path: '/demo/Sessions/drone_loop_long.aif',     size: 42300000, fileid: 9001 },
+    { name: 'guitar_impro_room.wav',   path: '/demo/Sessions/guitar_impro_room.wav',   size: 78100000, fileid: 9002 },
+    { name: 'synth_pad_dark.wav',      path: '/demo/Sessions/synth_pad_dark.wav',      size: 18400000, fileid: 9010 },
+    { name: 'tape_loop_v2.aif',        path: '/demo/Sessions/tape_loop_v2.aif',        size: 55200000, fileid: 9011 },
+    { name: 'piano_meditation.flac',   path: '/demo/Sessions/piano_meditation.flac',   size: 91000000, fileid: 9012 },
+    { name: 'field_rec_foret.wav',     path: '/demo/FieldRec/field_rec_foret.wav',     size: 31000000, fileid: 9003 },
+    { name: 'modular_patch_03.wav',    path: '/demo/Sessions/modular_patch_03.wav',    size: 23700000, fileid: 9013 },
+    { name: 'cello_bow_pressure.wav',  path: '/demo/Sessions/cello_bow_pressure.wav', size: 44100000, fileid: 9014 },
+    { name: 'voice_texture_01.wav',    path: '/demo/Sessions/voice_texture_01.wav',   size: 12300000, fileid: 9015 },
+  ];
+
+  renderExplorer(demoFolders, demoFiles);
 }
 
 function renderExplorer(folders, files) {
@@ -2231,6 +2612,15 @@ function showQuickImport(path, name, size, fileid) {
   document.getElementById('detailFooterImport').dataset.name = name;
   document.getElementById('detailFooterImport').dataset.size = size;
   document.getElementById('detailFooterImport').dataset.fileid = fileid || '';
+}
+
+function playExplorerFile() {
+  const btn = document.getElementById('detailFooterImport');
+  const name = btn.dataset.name;
+  const fileid = parseInt(btn.dataset.fileid) || null;
+  const path = btn.dataset.path;
+  // Build a temporary file-like object for the player
+  playerPlay({ alias: name.replace(/\.[^.]+$/, ''), originalName: name, originalPath: path, pcloudId: fileid });
 }
 
 function importFromDetail() {
