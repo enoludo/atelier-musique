@@ -1185,6 +1185,21 @@
   }
   .marker-input-actions button:hover { opacity: 0.8; }
 
+  .folder-delete-btn {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text3);
+    font-size: 10px;
+    cursor: pointer;
+    padding: 0 2px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.15s;
+  }
+  .folder-item:hover .folder-delete-btn { display: block; }
+  .folder-delete-btn:hover { color: #ff6b6b; }
+
 </style>
 </head>
 <body>
@@ -1963,6 +1978,14 @@ function addFolder() {
   document.getElementById('newFolderName').value = '';
 }
 
+function deleteFolder(id) {
+  state.folders = state.folders.filter(f => f.id !== id);
+  // Retirer le dossier de tous les fichiers qui l'ont
+  state.files.forEach(f => { f.folders = (f.folders || []).filter(fid => fid !== id); });
+  if (state.selectedFolder === id) state.selectedFolder = 'all';
+  save(); renderSidebar(); renderFiles();
+}
+
 function selectFolder(id) {
   state.selectedFolder = id;
   state.selectedTags = [];
@@ -2001,6 +2024,7 @@ function renderSidebar() {
       <span class="folder-icon">${folderSVG(14, f.color)}</span>
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>
       <span class="folder-count">${count}</span>
+      <button class="folder-delete-btn" onclick="event.stopPropagation();deleteFolder('${f.id}')" title="Supprimer">✕</button>
     </div>`;
   }).join('');
 
