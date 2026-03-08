@@ -1225,7 +1225,7 @@
 
     <!-- VIRTUAL FOLDERS (library mode) -->
     <div class="sidebar-section" id="virtualFoldersSection" style="display:none">
-      <div class="sidebar-title">Dossiers virtuels</div>
+      <div class="sidebar-title">Dossiers virtuels <span id="statFolders" style="font-weight:400;color:var(--text3);font-size:10px"></span></div>
       <div class="folder-item" onclick="selectFolder('all')" id="folder-all">
         <span class="folder-icon" id="icon-all"></span> Tous les sons
         <span class="folder-count" id="count-library">0</span>
@@ -1237,18 +1237,12 @@
     </div>
 
     <div class="sidebar-section">
-      <div class="sidebar-title">Tags</div>
+      <div class="sidebar-title">Tags <span id="statTags" style="font-weight:400;color:var(--text3);font-size:10px"></span></div>
       <div class="tag-cloud" id="tagCloud">
         <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
       </div>
     </div>
 
-    <div class="sidebar-stats">
-      <div class="stat-row"><span>Fichiers</span><span id="statFiles">0</span></div>
-      <div class="stat-row"><span>Dossiers</span><span id="statFolders">0</span></div>
-      <div class="stat-row"><span>Tags</span><span id="statTags">0</span></div>
-
-    </div>
   </aside>
 
   <!-- MAIN -->
@@ -2020,9 +2014,10 @@ function renderSidebar() {
     ? '<span style="font-size:11px;color:var(--text3);font-family:\'DM Mono\',monospace">Aucun tag</span>'
     : allTags.map((t,i) => `<span class="tag ${colors[i%5]} ${state.selectedTags.includes(t)?'active':''}" onclick="toggleTag('${t}')">${t}</span>`).join('');
 
-  document.getElementById('statFiles').textContent = state.files.length;
-  document.getElementById('statFolders').textContent = state.folders.length;
-  document.getElementById('statTags').textContent = [...new Set(state.files.flatMap(f=>f.tags))].length;
+  const folderCount = state.folders.length;
+  document.getElementById('statFolders').textContent = folderCount ? `(${folderCount})` : '';
+  const tagCount = [...new Set(state.files.flatMap(f=>f.tags))].length;
+  document.getElementById('statTags').textContent = tagCount ? `(${tagCount})` : '';
 }
 
 function renderFiles() {
