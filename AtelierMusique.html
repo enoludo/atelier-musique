@@ -2247,23 +2247,12 @@ async function playerPlay(f) {
       url = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
       showToast('Mode démo — connexion pCloud requise pour la lecture');
     } else {
-      // 1. Récupérer le lien signé via getfilelink
+      // getaudiolink est l'endpoint pCloud conçu pour le streaming web
+      // contrairement à getfilelink, il n'est pas bloqué par le referer
       const idParam = f.pcloudId ? { fileid: f.pcloudId } : { path: f.originalPath };
-      const res = await pcloudApi('getfilelink', idParam);
-      if (res.result !== 0) throw new Error(res.error || 'Lien indisponible');
-
-      // 2. Construire l'URL CDN pCloud
-      const cdnUrl = `https://${res.hosts[0]}${res.path}`;
-
-      // 3. Fetcher le fichier SANS Referer (contourne l'erreur 7010)
-      //    Le navigateur n'enverra pas de header Referer grâce à referrerPolicy
-      const resp = await fetch(cdnUrl, { referrerPolicy: 'no-referrer' });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const blob = await resp.blob();
-      // Libérer l'ancien blob si besoin
-      if (audio._blobUrl) URL.revokeObjectURL(audio._blobUrl);
-      url = URL.createObjectURL(blob);
-      audio._blobUrl = url;
+      const res = await pcloudApi('getaudiolink', { ...idParam, abitrate: 320 });
+      if (res.result !== 0) throw new Error(res.error || 'Lien audio indisponible');
+      url = `https://${res.hosts[0]}${res.path}`;
     }
 
     audio.src = url;
@@ -2300,7 +2289,6 @@ function playerSetVolume(v) { audio.volume = parseFloat(v); }
 
 function playerStop() {
   audio.pause();
-  if (audio._blobUrl) { URL.revokeObjectURL(audio._blobUrl); audio._blobUrl = null; }
   audio.src = '';
   playerFileId = null;
   document.getElementById('playerBar').style.display = 'none';
