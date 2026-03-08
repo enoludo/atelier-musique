@@ -2754,6 +2754,9 @@ document.addEventListener('keydown', e => {
     if (state.selectedFile) closeDetail();
   }
   if ((e.ctrlKey||e.metaKey) && e.key==='f') { e.preventDefault(); document.getElementById('searchInput').focus(); }
+  if (e.key === ' ' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+    if (audio.src) { e.preventDefault(); playerToggle(); }
+  }
 });
 
 load();
