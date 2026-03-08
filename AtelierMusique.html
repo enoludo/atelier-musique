@@ -2247,16 +2247,23 @@ async function playerPlay(f) {
       url = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
       showToast('Mode démo — connexion pCloud requise pour la lecture');
     } else {
-      // pCloud /file endpoint — stream direct via API, bypass CDN (évite erreur 7010 referer)
-      // On construit l'URL de streaming directement sans passer par le CDN
-      const server = state.pcloud.server;
-      const token  = encodeURIComponent(state.pcloud.token);
+      // 1. Récupérer le lien signé via getfilelink
+      const idParam = f.pcloudId ? { fileid: f.pcloudId } : { path: f.originalPath };
+      const res = await pcloudApi('getfilelink', idParam);
+      if (res.result !== 0) throw new Error(res.error || 'Lien indisponible');
 
-      if (f.pcloudId) {
-        url = `https://${server}/file?fileid=${f.pcloudId}&auth=${token}&forcedownload=0`;
-      } else {
-        url = `https://${server}/file?path=${encodeURIComponent(f.originalPath)}&auth=${token}&forcedownload=0`;
-      }
+      // 2. Construire l'URL CDN pCloud
+      const cdnUrl = `https://${res.hosts[0]}${res.path}`;
+
+      // 3. Fetcher le fichier SANS Referer (contourne l'erreur 7010)
+      //    Le navigateur n'enverra pas de header Referer grâce à referrerPolicy
+      const resp = await fetch(cdnUrl, { referrerPolicy: 'no-referrer' });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const blob = await resp.blob();
+      // Libérer l'ancien blob si besoin
+      if (audio._blobUrl) URL.revokeObjectURL(audio._blobUrl);
+      url = URL.createObjectURL(blob);
+      audio._blobUrl = url;
     }
 
     audio.src = url;
@@ -2293,6 +2300,7 @@ function playerSetVolume(v) { audio.volume = parseFloat(v); }
 
 function playerStop() {
   audio.pause();
+  if (audio._blobUrl) { URL.revokeObjectURL(audio._blobUrl); audio._blobUrl = null; }
   audio.src = '';
   playerFileId = null;
   document.getElementById('playerBar').style.display = 'none';
