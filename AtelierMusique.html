@@ -658,8 +658,29 @@
   }
   .detail-input:focus { border-color: var(--accent); }
 
-  .tag-input-row { display: flex; gap: 6px; }
+  .tag-input-row { display: flex; gap: 6px; position: relative; }
   .tag-input-row input { flex: 1; }
+  .tag-autocomplete {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 36px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    z-index: 200;
+  }
+  .tag-autocomplete-item {
+    padding: 7px 11px;
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text2);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .tag-autocomplete-item:hover,
+  .tag-autocomplete-item.active { background: var(--surface3); color: var(--text); }
 
   .detail-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 
@@ -1291,8 +1312,12 @@
         <div class="detail-field-label">Tags</div>
         <div class="detail-tags" id="detailTagsList"></div>
         <div class="tag-input-row">
-          <input type="text" class="detail-input" id="tagInput" placeholder="Ajouter un tag..." onkeydown="handleTagInput(event)">
+          <input type="text" class="detail-input" id="tagInput" placeholder="Ajouter un tag..."
+            onkeydown="handleTagInput(event)"
+            oninput="renderTagAutocomplete(this.value)"
+            onblur="setTimeout(closeTagAutocomplete, 150)">
           <button class="btn" onclick="addTagToSelected()">+</button>
+          <div class="tag-autocomplete" id="tagAutocomplete" style="display:none"></div>
         </div>
       </div>
       <div class="detail-field">
@@ -2285,7 +2310,65 @@ function removeFileFromFolder(fileId, folderId) {
   save(); renderDetailFolders(f); renderSidebar(); renderFiles();
 }
 
-function handleTagInput(e) { if (e.key === 'Enter') addTagToSelected(); }
+let tagAcIndex = -1;
+
+function getAllTags() {
+  const set = new Set();
+  state.files.forEach(f => (f.tags || []).forEach(t => set.add(t)));
+  return [...set].sort();
+}
+
+function renderTagAutocomplete(val) {
+  const ac = document.getElementById('tagAutocomplete');
+  tagAcIndex = -1;
+  const query = val.trim().toLowerCase().replace(/\s+/g,'_');
+  if (!query) { ac.style.display = 'none'; return; }
+  const f = state.selectedFile ? state.files.find(f => f.id === state.selectedFile) : null;
+  const existing = f ? (f.tags || []) : [];
+  const matches = getAllTags().filter(t => t.startsWith(query) && !existing.includes(t));
+  if (!matches.length) { ac.style.display = 'none'; return; }
+  ac.innerHTML = matches.slice(0, 8).map((t, i) =>
+    `<div class="tag-autocomplete-item" data-i="${i}" onmousedown="selectTagSuggestion('${t}')">${t}</div>`
+  ).join('');
+  ac.style.display = 'block';
+}
+
+function closeTagAutocomplete() {
+  const ac = document.getElementById('tagAutocomplete');
+  if (ac) ac.style.display = 'none';
+  tagAcIndex = -1;
+}
+
+function selectTagSuggestion(tag) {
+  const input = document.getElementById('tagInput');
+  input.value = tag;
+  closeTagAutocomplete();
+  addTagToSelected();
+}
+
+function handleTagInput(e) {
+  const ac = document.getElementById('tagAutocomplete');
+  const items = ac ? ac.querySelectorAll('.tag-autocomplete-item') : [];
+  if (e.key === 'ArrowDown') {
+    tagAcIndex = Math.min(tagAcIndex + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === tagAcIndex));
+    e.preventDefault(); return;
+  }
+  if (e.key === 'ArrowUp') {
+    tagAcIndex = Math.max(tagAcIndex - 1, -1);
+    items.forEach((el, i) => el.classList.toggle('active', i === tagAcIndex));
+    e.preventDefault(); return;
+  }
+  if (e.key === 'Escape') { closeTagAutocomplete(); return; }
+  if (e.key === 'Enter') {
+    if (tagAcIndex >= 0 && items[tagAcIndex]) {
+      selectTagSuggestion(items[tagAcIndex].textContent);
+    } else {
+      addTagToSelected();
+      closeTagAutocomplete();
+    }
+  }
+}
 
 function addTagToSelected() {
   if (!state.selectedFile) return;
@@ -2295,6 +2378,7 @@ function addTagToSelected() {
   const f = state.files.find(f => f.id === state.selectedFile);
   if (f && !f.tags.includes(tag)) { f.tags.push(tag); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
   input.value = '';
+  closeTagAutocomplete();
 }
 
 function removeTagFromFile(fileId, tag) {
