@@ -334,7 +334,9 @@
   /* FILE GRID */
   .file-area {
     flex: 1;
+    display: block;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 20px;
   }
 
@@ -2051,8 +2053,8 @@ function setMode(mode) {
   appMode = mode;
   document.getElementById('mode-explorer').className = 'folder-item' + (mode === 'explorer' ? ' active' : '');
   document.getElementById('mode-library').className = 'folder-item' + (mode === 'library' ? ' active' : '');
-  document.getElementById('explorerArea').style.display = mode === 'explorer' ? 'flex' : 'none';
-  document.getElementById('libraryArea').style.display = mode === 'library' ? 'flex' : 'none';
+  document.getElementById('explorerArea').style.display = mode === 'explorer' ? 'block' : 'none';
+  document.getElementById('libraryArea').style.display = mode === 'library' ? 'block' : 'none';
   document.getElementById('virtualFoldersSection').style.display = mode === 'library' ? 'block' : 'none';
 
   if (mode === 'explorer') {
