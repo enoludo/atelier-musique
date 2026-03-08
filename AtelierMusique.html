@@ -1065,6 +1065,105 @@
   }
   .player-close-btn:hover { background: var(--surface2); color: var(--text); }
 
+  /* ══ MARKERS ══ */
+  .player-marker {
+    position: absolute;
+    top: -5px; bottom: -5px;
+    width: 2px;
+    background: var(--accent);
+    opacity: 0.7;
+    border-radius: 1px;
+    cursor: pointer;
+    transform: translateX(-50%);
+    transition: opacity 0.15s;
+    z-index: 10;
+  }
+  .player-marker:hover { opacity: 1; }
+  .player-marker::before {
+    content: '';
+    position: absolute;
+    top: -3px; left: 50%;
+    transform: translateX(-50%);
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .player-marker-tooltip {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-family: 'Funnel Sans', sans-serif;
+    color: var(--text);
+    max-width: 220px;
+    white-space: normal;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    z-index: 300;
+  }
+  .player-marker:hover .player-marker-tooltip { opacity: 1; }
+  .player-marker-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    margin-bottom: 2px;
+  }
+  .marker-input-popup {
+    position: fixed;
+    bottom: 72px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    z-index: 400;
+    min-width: 280px;
+  }
+  .marker-input-popup label {
+    font-size: 10px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text3);
+    letter-spacing: 0.05em;
+  }
+  .marker-input-popup textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--text);
+    font-family: 'Funnel Sans', sans-serif;
+    font-size: 12px;
+    resize: none;
+    outline: none;
+    height: 60px;
+  }
+  .marker-input-popup textarea:focus { border-color: var(--accent); }
+  .marker-input-actions {
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+  .marker-input-actions button {
+    font-size: 11px; font-family: 'DM Mono', monospace;
+    padding: 4px 12px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--border); background: none;
+    color: var(--text2); transition: all 0.15s;
+  }
+  .marker-input-actions button.confirm {
+    background: var(--accent); color: #000; border-color: var(--accent);
+  }
+  .marker-input-actions button:hover { opacity: 0.8; }
+
 </style>
 </head>
 <body>
@@ -1257,8 +1356,9 @@
 
     <div class="player-progress-wrap">
       <span class="player-time" id="playerCurrent">0:00</span>
-      <div class="player-progress" id="playerProgress" onclick="playerSeek(event)">
+      <div class="player-progress" id="playerProgress" onclick="playerSeek(event)" oncontextmenu="playerAddMarkerAtClick(event)">
         <div class="player-progress-fill" id="playerFill"></div>
+        <div id="playerMarkers"></div>
       </div>
       <span class="player-time" id="playerDuration">—</span>
     </div>
@@ -2307,7 +2407,106 @@ function playerStop() {
   playerFileId = null;
   document.getElementById('playerBar').style.display = 'none';
   document.body.classList.remove('player-open');
+  renderMarkers();
 }
+
+// ── MARKERS ──────────────────────────────────────────────────
+function getFileMarkers() {
+  if (!playerFileId) return [];
+  const f = state.files.find(f => f.id === playerFileId);
+  return f ? (f.markers || []) : [];
+}
+
+function saveMarker(marker) {
+  if (!playerFileId) return;
+  const f = state.files.find(f => f.id === playerFileId);
+  if (!f) return;
+  if (!f.markers) f.markers = [];
+  f.markers.push(marker);
+  f.markers.sort((a, b) => a.time - b.time);
+  scheduleSave();
+  renderMarkers();
+}
+
+function deleteMarker(markerId) {
+  if (!playerFileId) return;
+  const f = state.files.find(f => f.id === playerFileId);
+  if (!f || !f.markers) return;
+  f.markers = f.markers.filter(m => m.id !== markerId);
+  scheduleSave();
+  renderMarkers();
+}
+
+function renderMarkers() {
+  const container = document.getElementById('playerMarkers');
+  if (!container) return;
+  const markers = getFileMarkers();
+  const dur = audio.duration || 0;
+  if (!dur || markers.length === 0) { container.innerHTML = ''; return; }
+  container.innerHTML = markers.map(m => {
+    const pct = (m.time / dur) * 100;
+    const timeStr = formatTime(m.time);
+    const note = m.note ? m.note.replace(/</g,'&lt;') : '';
+    return `<div class="player-marker" style="left:${pct}%"
+      onclick="event.stopPropagation(); audio.currentTime=${m.time}"
+      oncontextmenu="event.stopPropagation(); event.preventDefault(); deleteMarker('${m.id}'); showToast('Marqueur supprimé')">
+      <div class="player-marker-tooltip">
+        <div class="player-marker-time">${timeStr}</div>
+        ${note ? `<div>${note}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function playerAddMarker() {
+  if (!audio.src || !playerFileId) { showToast('Aucun son en cours'); return; }
+  const t = audio.currentTime;
+  openMarkerInput(t);
+}
+
+function playerAddMarkerAtClick(e) {
+  e.preventDefault();
+  if (!audio.src || !playerFileId) return;
+  const bar = document.getElementById('playerProgress');
+  const rect = bar.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  const t = pct * (audio.duration || 0);
+  openMarkerInput(t);
+}
+
+function openMarkerInput(time) {
+  closeMarkerInput();
+  const popup = document.createElement('div');
+  popup.className = 'marker-input-popup';
+  popup.id = 'markerInputPopup';
+  popup.innerHTML = `
+    <label>MARQUEUR — ${formatTime(time)}</label>
+    <textarea id="markerNote" placeholder="Note…" autofocus></textarea>
+    <div class="marker-input-actions">
+      <button onclick="closeMarkerInput()">Annuler</button>
+      <button class="confirm" onclick="confirmMarker(${time})">Poser</button>
+    </div>`;
+  document.body.appendChild(popup);
+  setTimeout(() => popup.querySelector('textarea').focus(), 50);
+  // Escape ferme
+  popup.querySelector('textarea').addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeMarkerInput();
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirmMarker(time); }
+  });
+}
+
+function closeMarkerInput() {
+  document.getElementById('markerInputPopup')?.remove();
+}
+
+function confirmMarker(time) {
+  const note = document.getElementById('markerNote')?.value.trim() || '';
+  const marker = { id: Date.now().toString(36), time, note };
+  saveMarker(marker);
+  closeMarkerInput();
+  showToast(`Marqueur posé à ${formatTime(time)}`);
+}
+
 
 // Audio event listeners
 audio.addEventListener('timeupdate', () => {
@@ -2318,6 +2517,7 @@ audio.addEventListener('timeupdate', () => {
 });
 audio.addEventListener('loadedmetadata', () => {
   document.getElementById('playerDuration').textContent = formatTime(audio.duration);
+  renderMarkers();
 });
 audio.addEventListener('ended', () => playerSetPlayIcon(false));
 audio.addEventListener('error', () => {
@@ -2756,6 +2956,9 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey||e.metaKey) && e.key==='f') { e.preventDefault(); document.getElementById('searchInput').focus(); }
   if (e.key === ' ' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
     if (audio.src) { e.preventDefault(); playerToggle(); }
+  }
+  if (e.key === 'm' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+    playerAddMarker();
   }
 });
 
