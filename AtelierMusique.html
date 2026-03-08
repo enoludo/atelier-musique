@@ -1966,7 +1966,11 @@ function renderSoundCard(f, mode) {
         ? `selectFile('${id}')`
         : `explorerSelectFile('${id}','${(f.originalPath||f.path||'').replace(/'/g,"\\'")}','${original.replace(/'/g,"\\'")}',${size},${fileid})`);
 
-  return `<div class="sound-card ${selected?'selected':''} ${(!isNew&&mode!=='library')?'imported':''}" onclick="${onclick}">
+  const ondblclick = isNew
+    ? `event.stopPropagation();playerPlay({alias:'${alias.replace(/'/g,"\\'")}',originalName:'${original.replace(/'/g,"\\'")}',originalPath:'${(f.path||'').replace(/'/g,"\\'")}',pcloudId:${fileid||'null'}})`
+    : `event.stopPropagation();playerPlay(state.files.find(f=>f.id==='${id}'))`;
+
+  return `<div class="sound-card ${selected?'selected':''} ${(!isNew&&mode!=='library')?'imported':''}" onclick="${onclick}" ondblclick="${ondblclick}">
     <div class="sound-waveform">${bars}</div>
     <div class="sound-name">${alias}</div>
     <div class="sound-original">${original}</div>
