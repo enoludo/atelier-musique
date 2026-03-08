@@ -342,128 +342,229 @@
   .file-area::-webkit-scrollbar-track { background: transparent; }
   .file-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-  .file-grid {
+  /* ══════════════════════════════════════════
+     UNIFIED GRID SYSTEM — sound-grid / sound-list
+     Identique explorateur pCloud + dossiers virtuels
+     ══════════════════════════════════════════ */
+
+  /* ── Conteneurs ── */
+  .sound-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    align-content: start;
+  }
+  .sound-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
-  .file-list { display: flex; flex-direction: column; gap: 2px; }
+  /* ── Separateur de section (vue liste) ── */
+  .section-divider {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text3);
+    padding: 14px 4px 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2px;
+  }
+  /* En grille le divider occupe toute la largeur */
+  .sound-grid > .section-divider { grid-column: 1 / -1; }
 
-  .file-card {
+  /* ══ CARTE DOSSIER ══ */
+  .sound-folder-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 16px;
+    padding: 14px 14px 12px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: border-color 0.15s, transform 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    /* Hauteur fixe identique aux sound-card */
+    height: 140px;
+    box-sizing: border-box;
+  }
+  .sound-folder-card:hover { border-color: var(--text2); transform: translateY(-1px); }
+  .sound-folder-icon { flex-shrink: 0; display: flex; align-items: center; }
+  .sound-folder-name {
+    font-family: 'Funnel Display', sans-serif;
+    font-size: 13px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1;
+  }
+  .sound-folder-meta {
+    font-size: 10px; color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    margin-top: auto;
+  }
+
+  /* ══ CARTE SON ══ */
+  .sound-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 14px 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    /* Hauteur fixe = stabilité de la grille */
+    height: 140px;
+    box-sizing: border-box;
     position: relative;
     overflow: hidden;
   }
+  .sound-card:hover { border-color: var(--text2); transform: translateY(-1px); }
+  .sound-card.selected { border-color: var(--accent); background: rgba(255,255,255,0.02); }
+  .sound-card.imported { border-color: rgba(255,255,255,0.20); }
+  .sound-card:hover .wave-bar,
+  .sound-card.selected .wave-bar { background: rgba(255,255,255,0.72); }
 
-  .file-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-
-  .file-card:hover { border-color: var(--text3); transform: translateY(-1px); }
-  .file-card:hover::before { opacity: 1; }
-  .file-card.selected { border-color: var(--accent); background: rgba(232,255,71,0.04); }
-  .file-card.selected::before { opacity: 1; }
-
-  .file-waveform {
-    height: 36px;
-    margin-bottom: 12px;
+  /* Waveform */
+  .sound-waveform {
+    height: 26px;
+    margin-bottom: 8px;
     display: flex;
     align-items: center;
     gap: 1px;
+    flex-shrink: 0;
   }
-
   .wave-bar {
-    width: 2px;
-    flex: none;
-    background: rgba(255,255,255,0.15);
+    width: 2px; flex: none;
+    background: rgba(255,255,255,0.13);
     border-radius: 1px;
     transition: background 0.2s;
   }
 
-  .file-card:hover .wave-bar,
-  .file-card.selected .wave-bar { background: rgba(255,255,255,0.7); }
-
-  .file-alias {
+  /* Texte card */
+  .sound-name {
     font-family: 'Funnel Display', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 3px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 13px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    margin-bottom: 2px; flex-shrink: 0;
   }
-
-  .file-original {
-    font-size: 10px;
-    color: var(--text3);
-    margin-bottom: 8px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .sound-original {
+    font-size: 10px; color: var(--text3);
     font-family: 'DM Mono', monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    margin-bottom: 4px; flex-shrink: 0;
   }
 
-  .file-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+  /* Chips dossier virtuels */
+  .sound-chips {
+    display: flex; flex-wrap: nowrap; gap: 3px;
+    overflow: hidden; flex-shrink: 0;
+    margin-bottom: 4px;
+  }
+  .sound-chip {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 1px 6px; border-radius: 10px;
+    font-size: 10px; font-family: 'DM Mono', monospace;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text3); white-space: nowrap; flex-shrink: 0;
+  }
+  .sound-chip-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
 
-  .file-tag {
-    font-size: 10px;
-    padding: 2px 8px;
-    border-radius: 10px;
-    background: var(--surface3);
-    color: var(--text3);
-    border: 1px solid var(--border);
+  /* Tags */
+  .sound-tags {
+    display: flex; flex-wrap: nowrap; gap: 3px;
+    overflow: hidden; flex-shrink: 0; margin-bottom: 4px;
+  }
+  .sound-tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 10px;
+    background: var(--surface3); color: var(--text3);
+    border: 1px solid var(--border); font-family: 'DM Mono', monospace;
+    white-space: nowrap; flex-shrink: 0;
+  }
+
+  /* Bas de card */
+  .sound-meta {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace;
+    margin-top: auto; position: relative; flex-shrink: 0;
+  }
+  .sound-badge-new {
+    font-size: 10px; padding: 1px 6px; border-radius: 10px;
+    background: var(--surface3); color: var(--text3);
+    border: 1px solid var(--border); font-family: 'DM Mono', monospace;
+  }
+
+  /* ══ ROW (vue liste) ══ */
+  .sound-folder-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 7px;
+    cursor: pointer; border: 1px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+    min-width: 0; height: 38px; box-sizing: border-box;
+  }
+  .sound-folder-row:hover { background: var(--surface); border-color: var(--border); }
+
+  .sound-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 7px;
+    cursor: pointer; border: 1px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+    min-width: 0; height: 38px; box-sizing: border-box;
+  }
+  .sound-row:hover { background: var(--surface); border-color: var(--border); }
+  .sound-row.selected { background: var(--surface); border-color: var(--accent); }
+
+  .sound-row-icon {
+    font-size: 12px; width: 18px; text-align: center;
+    color: var(--text3); flex-shrink: 0;
+  }
+  .sound-row-name {
+    font-family: 'Funnel Display', sans-serif;
+    font-size: 13px; font-weight: 600;
+    flex: 1.5; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .sound-row-original {
+    font-size: 11px; color: var(--text3);
     font-family: 'DM Mono', monospace;
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-
-  .file-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 10px;
-    color: var(--text3);
+  .sound-row-chips {
+    display: flex; gap: 3px; flex-shrink: 0;
+    max-width: 130px; overflow: hidden;
+  }
+  .sound-row-size {
+    font-size: 10px; color: var(--text3);
     font-family: 'DM Mono', monospace;
+    flex-shrink: 0; width: 50px; text-align: right;
   }
 
-  .file-duration {
-    background: var(--surface3);
-    padding: 2px 8px;
-    border-radius: 4px;
+  /* ══ BOUTON + DOSSIER (sur card) ══ */
+  .card-folder-btn {
+    font-size: 10px; font-family: 'DM Mono', monospace;
+    padding: 2px 6px; border-radius: 8px;
+    border: 1px dashed rgba(255,255,255,0.2); color: var(--text3);
+    background: none; cursor: pointer; transition: all 0.15s; white-space: nowrap;
   }
-
-  /* LIST VIEW */
-  .file-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: all 0.15s;
+  .card-folder-btn:hover { border-color: var(--text2); color: var(--text2); }
+  .card-folder-dropdown {
+    position: absolute; bottom: calc(100% + 4px); right: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    min-width: 150px; z-index: 50;
   }
-  .file-row:hover { background: var(--surface); border-color: var(--border); }
-  .file-row.selected { background: var(--surface); border-color: var(--accent); }
-
-  .row-icon { font-size: 16px; width: 24px; text-align: center; color: var(--text3); }
-  .row-alias { font-family: 'Funnel Display', sans-serif; font-size: 13px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .row-original { font-size: 11px; color: var(--text3); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'DM Mono', monospace; }
-  .row-tags { display: flex; gap: 4px; flex-shrink: 0; }
-  .row-duration { font-size: 11px; color: var(--text3); width: 60px; text-align: right; flex-shrink: 0; font-family: 'DM Mono', monospace; }
-  .row-actions { display: none; gap: 4px; flex-shrink: 0; }
-  .file-row:hover .row-actions { display: flex; }
+  .card-folder-dropdown-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px; border-radius: 5px; cursor: pointer;
+    font-size: 12px; font-family: 'Funnel Sans', sans-serif;
+    color: var(--text2); transition: background 0.1s; white-space: nowrap;
+  }
+  .card-folder-dropdown-item:hover { background: var(--surface3); color: var(--text); }
 
   .icon-btn {
     width: 26px; height: 26px;
@@ -765,71 +866,8 @@
   }
   .color-swatch.selected { border-color: var(--text); transform: scale(1.15); }
 
-  .explorer-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 10px;
-  }
-  .explorer-list { display: flex; flex-direction: column; gap: 2px; }
-
-  .explorer-folder {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px;
-    cursor: pointer;
-    transition: all 0.15s;
-    display: flex; flex-direction: column; gap: 8px;
-  }
-  .explorer-folder:hover { border-color: var(--accent); transform: translateY(-1px); }
-  .explorer-folder-icon { font-size: 24px; }
-  .explorer-folder-name { font-family: 'Funnel Display', sans-serif; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .explorer-folder-count { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
-
-  .explorer-file {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px;
-    cursor: pointer;
-    transition: all 0.15s;
-    position: relative;
-    overflow: hidden;
-  }
-  .explorer-file:hover { border-color: var(--text3); transform: translateY(-1px); }
-  .explorer-file.imported { border-color: rgba(255,255,255,0.2); }
-  .explorer-file.selected { border-color: var(--accent); background: rgba(255,255,255,0.03); }
-
-  .explorer-waveform {
-    height: 28px; margin-bottom: 10px;
-    display: flex; align-items: center; gap: 1px;
-  }
-  .explorer-file:hover .wave-bar,
-  .explorer-file.imported .wave-bar { background: rgba(255,255,255,0.6); }
-  .explorer-file.selected .wave-bar { background: rgba(255,255,255,0.9); }
-
-  .explorer-name { font-family: 'Funnel Display', sans-serif; font-size: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
-  .explorer-original { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 6px; }
-  .explorer-badges { display: flex; gap: 4px; flex-wrap: wrap; }
-  .explorer-badge-imported { font-size: 10px; padding: 1px 7px; border-radius: 10px; background: rgba(232,255,71,0.1); color: var(--accent); border: 1px solid rgba(232,255,71,0.3); font-family: 'DM Mono', monospace; }
-  .explorer-badge-new { font-size: 10px; padding: 1px 7px; border-radius: 10px; background: var(--surface3); color: var(--text3); border: 1px solid var(--border); font-family: 'DM Mono', monospace; }
-
-  /* List view for explorer */
-  .explorer-row {
-    display: flex; align-items: center; gap: 12px;
-    padding: 9px 14px; border-radius: 6px; cursor: pointer;
-    border: 1px solid transparent; transition: all 0.15s;
-  }
-  .explorer-row:hover { background: var(--surface); border-color: var(--border); }
-  .explorer-row.selected { background: var(--surface); border-color: var(--accent); }
-
-
-  .section-divider {
-    font-family: 'DM Mono', monospace; font-size: 10px;
-    text-transform: uppercase; letter-spacing: 2px; color: var(--text3);
-    padding: 12px 0 8px; margin-bottom: 4px;
-    border-bottom: 1px solid var(--border);
-  }
+  /* folder browser modal */
+  .folder-browser-item {
     display: flex; align-items: center; gap: 10px;
     padding: 9px 14px;
     cursor: pointer;
@@ -841,11 +879,12 @@
   }
   .folder-browser-item:last-child { border-bottom: none; }
   .folder-browser-item:hover { background: var(--surface3); color: var(--text); }
-  .folder-browser-item.selected { background: rgba(232,255,71,0.08); color: var(--accent); }
+  .folder-browser-item.selected { background: rgba(255,255,255,0.05); color: var(--accent); }
   .folder-browser-item .fbi-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
   .folder-browser-item .fbi-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .folder-browser-item .fbi-nav { font-size: 11px; color: var(--text3); flex-shrink: 0; }
 
+  /* folder chips in detail panel */
   .folder-chip {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 3px 8px 3px 6px; border-radius: 20px;
@@ -995,7 +1034,7 @@
         <div class="empty-title">Bibliothèque vide</div>
         <div class="empty-sub">Naviguez dans l'explorateur et importez des fichiers pour commencer.</div>
       </div>
-      <div id="fileGrid" class="file-grid" style="display:none"></div>
+      <div id="fileGrid" class="sound-grid" style="display:none"></div>
     </div>
   </main>
 
@@ -1695,33 +1734,86 @@ function renderFiles() {
 
   empty.style.display = 'none';
   grid.style.display = '';
-  grid.className = state.view === 'grid' ? 'file-grid' : 'file-list';
+  grid.className = state.view === 'grid' ? 'sound-grid' : 'sound-list';
   grid.innerHTML = state.view === 'grid'
-    ? files.map(renderFileCard).join('')
-    : files.map(renderFileRow).join('');
+    ? files.map(f => renderSoundCard(f, 'library')).join('')
+    : files.map(f => renderSoundRow(f, 'library')).join('');
 }
 
-function renderFileCard(f) {
-  const bars = Array.from({length:32}).map(() => `<div class="wave-bar" style="height:${Math.floor(Math.pow(Math.random(),0.6)*80+8)}%"></div>`).join('');
-  const tagsHtml = f.tags.slice(0,3).map(t => `<span class="file-tag">${t}</span>`).join('');
-  return `<div class="file-card ${state.selectedFile===f.id?'selected':''}" onclick="selectFile('${f.id}')">
-    <div class="file-waveform">${bars}</div>
-    <div class="file-alias">${f.alias||f.originalName}</div>
-    <div class="file-original">${f.originalName}</div>
-    ${f.tags.length?`<div class="file-tags">${tagsHtml}${f.tags.length>3?`<span class="file-tag">+${f.tags.length-3}</span>`:''}</div>`:''}
-    <div class="file-meta"><span>${formatSize(f.size)}</span>${f.duration?`<span class="file-duration">${f.duration}</span>`:''}</div>
+// ── UNIFIED SOUND CARD / ROW ──────────────────────────────────
+function renderSoundCard(f, mode) {
+  const isNew = mode === 'explorer-new';
+  const id = isNew ? '' : f.id;
+  const alias = isNew ? f.name.replace(/\.[^.]+$/, '') : (f.alias || f.originalName.replace(/\.[^.]+$/, ''));
+  const original = isNew ? f.name : f.originalName;
+  const size = f.size || 0;
+  const fileid = f.fileid || f.pcloudId || 0;
+  const selected = state.selectedFile === (id || f.path);
+  const bars = Array.from({length:28}).map(() =>
+    `<div class="wave-bar" style="height:${Math.floor(Math.pow(Math.random(),0.6)*80+8)}%"></div>`).join('');
+
+  const fileFolders = isNew ? [] : (f.folders || (f.folder ? [f.folder] : []));
+  const folderChips = fileFolders.slice(0, 2).map(fid => {
+    const vf = state.folders.find(v => v.id === fid);
+    return vf ? `<span class="sound-chip"><span class="sound-chip-dot" style="background:${vf.color}"></span>${vf.name}</span>` : '';
+  }).join('') + (fileFolders.length > 2 ? `<span class="sound-chip">+${fileFolders.length-2}</span>` : '');
+
+  const tags = isNew ? [] : (f.tags || []);
+  const tagsHtml = tags.slice(0, 2).map(t => `<span class="sound-tag">${t}</span>`).join('') +
+    (tags.length > 2 ? `<span class="sound-tag">+${tags.length-2}</span>` : '');
+
+  const available = isNew ? [] : state.folders.filter(vf => !fileFolders.includes(vf.id));
+  const folderBtn = (!isNew && available.length > 0)
+    ? `<button class="card-folder-btn" onclick="event.stopPropagation();toggleFolderDropdown('${id}',this)">+ dossier</button>`
+    : '';
+
+  const onclick = isNew
+    ? `explorerSelectFile('','${f.path.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'")}',${size},${fileid})`
+    : (mode === 'library'
+        ? `selectFile('${id}')`
+        : `explorerSelectFile('${id}','${(f.originalPath||f.path||'').replace(/'/g,"\\'")}','${original.replace(/'/g,"\\'")}',${size},${fileid})`);
+
+  return `<div class="sound-card ${selected?'selected':''} ${(!isNew&&mode!=='library')?'imported':''}" onclick="${onclick}">
+    <div class="sound-waveform">${bars}</div>
+    <div class="sound-name">${alias}</div>
+    <div class="sound-original">${original}</div>
+    ${folderChips ? `<div class="sound-chips">${folderChips}</div>` : ''}
+    ${tagsHtml ? `<div class="sound-tags">${tagsHtml}</div>` : ''}
+    <div class="sound-meta">
+      <span>${formatSize(size)}</span>
+      ${isNew ? `<span class="sound-badge-new">Non importé</span>` : folderBtn}
+      <div class="card-folder-dropdown" id="fdd-${id}" style="display:none"></div>
+    </div>
   </div>`;
 }
 
-function renderFileRow(f) {
-  const tagsHtml = f.tags.slice(0,2).map(t => `<span class="file-tag">${t}</span>`).join('');
-  return `<div class="file-row ${state.selectedFile===f.id?'selected':''}" onclick="selectFile('${f.id}')">
-    <span class="row-icon">♪</span>
-    <span class="row-alias">${f.alias||f.originalName}</span>
-    <span class="row-original">${f.originalPath}</span>
-    <div class="row-tags">${tagsHtml}</div>
-    <span class="row-duration">${formatSize(f.size)}</span>
-    <div class="row-actions"><button class="icon-btn accent" onclick="event.stopPropagation();selectFile('${f.id}')" title="Modifier">✎</button></div>
+function renderSoundRow(f, mode) {
+  const isNew = mode === 'explorer-new';
+  const id = isNew ? '' : f.id;
+  const alias = isNew ? f.name.replace(/\.[^.]+$/, '') : (f.alias || f.originalName.replace(/\.[^.]+$/, ''));
+  const original = isNew ? f.name : f.originalName;
+  const size = f.size || 0;
+  const fileid = f.fileid || f.pcloudId || 0;
+  const selected = state.selectedFile === (id || f.path);
+
+  const fileFolders = isNew ? [] : (f.folders || (f.folder ? [f.folder] : []));
+  const folderChips = fileFolders.slice(0,2).map(fid => {
+    const vf = state.folders.find(v => v.id === fid);
+    return vf ? `<span class="sound-chip"><span class="sound-chip-dot" style="background:${vf.color}"></span>${vf.name}</span>` : '';
+  }).join('');
+
+  const onclick = isNew
+    ? `explorerSelectFile('','${f.path.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'")}',${size},${fileid})`
+    : (mode === 'library'
+        ? `selectFile('${id}')`
+        : `explorerSelectFile('${id}','${(f.originalPath||f.path||'').replace(/'/g,"\\'")}','${original.replace(/'/g,"\\'")}',${size},${fileid})`);
+
+  return `<div class="sound-row ${selected?'selected':''}" onclick="${onclick}">
+    <span class="sound-row-icon">♪</span>
+    <span class="sound-row-name">${alias}</span>
+    <span class="sound-row-original">${original}</span>
+    ${folderChips ? `<span class="sound-row-chips">${folderChips}</span>` : ''}
+    <span class="sound-row-size">${formatSize(size)}</span>
   </div>`;
 }
 
@@ -1775,7 +1867,45 @@ function updateSelectedFile() {
   save(); renderFiles(); renderSidebar();
 }
 
-function renderDetailFolders(f) {
+function toggleFolderDropdown(fileId, btn) {
+  const dd = document.getElementById('fdd-' + fileId);
+  if (!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  // Close all other dropdowns first
+  document.querySelectorAll('.card-folder-dropdown').forEach(d => d.style.display = 'none');
+  if (isOpen) return;
+
+  const f = state.files.find(f => f.id === fileId);
+  if (!f) return;
+  const fileFolders = f.folders || (f.folder ? [f.folder] : []);
+  const available = state.folders.filter(vf => !fileFolders.includes(vf.id));
+
+  dd.innerHTML = available.map(vf =>
+    `<div class="card-folder-dropdown-item" onclick="event.stopPropagation();quickAddToFolder('${fileId}','${vf.id}')">
+      <span style="width:8px;height:8px;border-radius:50%;background:${vf.color};flex-shrink:0"></span>
+      ${vf.name}
+    </div>`
+  ).join('');
+  dd.style.display = 'block';
+
+  // Close on outside click
+  setTimeout(() => document.addEventListener('click', function h() {
+    dd.style.display = 'none';
+    document.removeEventListener('click', h);
+  }), 0);
+}
+
+function quickAddToFolder(fileId, folderId) {
+  const f = state.files.find(f => f.id === fileId);
+  if (!f) return;
+  if (!f.folders) f.folders = f.folder ? [f.folder] : [];
+  if (!f.folders.includes(folderId)) {
+    f.folders.push(folderId);
+    save(); renderSidebar(); renderFiles();
+    const vf = state.folders.find(v => v.id === folderId);
+    showToast(`Ajouté à "${vf?.name}" ✓`);
+  }
+}
   const assigned = document.getElementById('detailFoldersList');
   const addArea = document.getElementById('detailFoldersAdd');
   if (!f.folders) f.folders = f.folder ? [f.folder] : [];
@@ -1991,82 +2121,80 @@ async function explorerGoTo(path) {
 function renderExplorer(folders, files) {
   const grid = document.getElementById('explorerGrid');
   const isGrid = state.view === 'grid';
-  grid.className = isGrid ? 'explorer-grid' : 'explorer-list';
+
+  if (folders.length === 0 && files.length === 0) {
+    grid.className = '';
+    grid.innerHTML = `<div style="padding:60px 20px;text-align:center">
+      <div style="font-size:32px;opacity:.2">♫</div>
+      <div style="font-family:'Funnel Display',sans-serif;font-size:16px;font-weight:600;margin-top:12px;color:var(--text2)">Dossier vide</div>
+      <div style="font-size:13px;color:var(--text3);margin-top:6px">Aucun fichier audio dans ce dossier.</div>
+    </div>`;
+    return;
+  }
 
   let html = '';
 
-  // Folders
-  if (folders.length > 0) {
-    if (!isGrid) html += `<div class="section-divider">Dossiers (${folders.length})</div>`;
-    html += folders.map(f => isGrid ? renderExplorerFolderCard(f) : renderExplorerFolderRow(f)).join('');
-  }
-
-  // Audio files
-  if (files.length > 0) {
-    if (!isGrid) html += `<div class="section-divider">Fichiers audio (${files.length})</div>`;
-    html += files.map(f => isGrid ? renderExplorerFileCard(f) : renderExplorerFileRow(f)).join('');
-  }
-
-  if (folders.length === 0 && files.length === 0) {
-    html = '<div class="empty-state" style="flex:1"><div class="empty-icon" style="opacity:.3">♫</div><div class="empty-title">Dossier vide</div><div class="empty-sub">Aucun fichier audio dans ce dossier.</div></div>';
+  if (isGrid) {
+    // En grille : dossiers dans leur propre grille, sons dans leur grille séparée
+    if (folders.length > 0) {
+      html += `<div class="section-divider" style="padding:6px 2px 8px;margin-bottom:8px">
+        <span>Dossiers</span><span style="margin-left:8px;opacity:.5">${folders.length}</span>
+      </div>
+      <div class="sound-grid" style="margin-bottom:20px">
+        ${folders.map(renderExplorerFolderCard).join('')}
+      </div>`;
+    }
+    if (files.length > 0) {
+      if (folders.length > 0) {
+        html += `<div class="section-divider" style="padding:6px 2px 8px;margin-bottom:8px">
+          <span>Fichiers audio</span><span style="margin-left:8px;opacity:.5">${files.length}</span>
+        </div>`;
+      }
+      html += `<div class="sound-grid">${files.map(renderExplorerFileCard).join('')}</div>`;
+    }
+    grid.className = '';
+  } else {
+    // En liste : tout dans une colonne, avec séparateurs
+    if (folders.length > 0) {
+      html += `<div class="section-divider">Dossiers — ${folders.length}</div>`;
+      html += folders.map(renderExplorerFolderRow).join('');
+    }
+    if (files.length > 0) {
+      html += `<div class="section-divider" style="margin-top:${folders.length?'12px':'0'}">Fichiers audio — ${files.length}</div>`;
+      html += files.map(renderExplorerFileRow).join('');
+    }
+    grid.className = 'sound-list';
   }
 
   grid.innerHTML = html;
 }
 
 function renderExplorerFolderCard(f) {
-  return `<div class="explorer-folder" ondblclick="explorerGoTo('${f.path.replace(/'/g,"\\'")}')">
-    <div class="explorer-folder-icon">${folderSVG(28, 'var(--text2)')}</div>
-    <div class="explorer-folder-name">${f.name}</div>
+  return `<div class="sound-folder-card" ondblclick="explorerGoTo('${f.path.replace(/'/g,"\\'")}')">
+    <div>${folderSVG(26, 'var(--text3)')}</div>
+    <div class="sound-folder-name">${f.name}</div>
+    <div class="sound-folder-meta">Double-clic pour ouvrir</div>
   </div>`;
 }
 
 function renderExplorerFolderRow(f) {
-  return `<div class="explorer-row" ondblclick="explorerGoTo('${f.path.replace(/'/g,"\\'")}')">
-    <span style="width:24px;text-align:center;display:flex;align-items:center;justify-content:center">${folderSVG(16, 'var(--text3)')}</span>
-    <span style="font-family:'Funnel Display',sans-serif;font-weight:600;font-size:13px;flex:1">${f.name}</span>
-    <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Ouvrir →</span>
+  return `<div class="sound-folder-row" ondblclick="explorerGoTo('${f.path.replace(/'/g,"\\'")}')">
+    <span style="width:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${folderSVG(15,'var(--text3)')}</span>
+    <span class="sound-row-name">${f.name}</span>
+    <span style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0">Ouvrir →</span>
   </div>`;
 }
 
 function renderExplorerFileCard(f) {
   const imported = state.files.find(sf => (sf.pcloudId && sf.pcloudId === f.fileid) || sf.originalPath === f.path);
-  const bars = Array.from({length:28}).map(() => `<div class="wave-bar" style="height:${Math.floor(Math.pow(Math.random(),0.6)*80+8)}%"></div>`).join('');
-  const displayName = imported ? (imported.alias || imported.originalName.replace(/\.[^.]+$/,'')) : f.name.replace(/\.[^.]+$/,'');
-  const sel = state.selectedFile === (imported?.id || f.path);
-
-  // Virtual folder chips
-  let folderChips = '';
-  if (imported) {
-    const fileFolders = imported.folders || (imported.folder ? [imported.folder] : []);
-    folderChips = fileFolders.map(fid => {
-      const vf = state.folders.find(v => v.id === fid);
-      return vf ? `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:10px;font-size:10px;font-family:'DM Mono',monospace;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:var(--text2)"><span style="width:5px;height:5px;border-radius:50%;background:${vf.color};flex-shrink:0"></span>${vf.name}</span>` : '';
-    }).join('');
-  }
-
-  return `<div class="explorer-file ${imported?'imported':''} ${sel?'selected':''}" onclick="explorerSelectFile('${(imported?.id||'').replace(/'/g,"\\'")}','${f.path.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'")}',${f.size||0},${f.fileid||0})">
-    <div class="explorer-waveform">${bars}</div>
-    <div class="explorer-name">${displayName}</div>
-    <div class="explorer-original" style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:${folderChips||!imported?'6px':'2px'}">${f.name}</div>
-    ${folderChips ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:6px">${folderChips}</div>` : ''}
-    <div class="explorer-badges">
-      ${imported ? `<span class="explorer-badge-imported">✓</span>` : `<span class="explorer-badge-new">Non importé</span>`}
-    </div>
-  </div>`;
+  if (imported) return renderSoundCard(imported, 'explorer-imported');
+  return renderSoundCard({ name: f.name, path: f.path, size: f.size, fileid: f.fileid }, 'explorer-new');
 }
 
 function renderExplorerFileRow(f) {
   const imported = state.files.find(sf => (sf.pcloudId && sf.pcloudId === f.fileid) || sf.originalPath === f.path);
-  const displayName = imported ? (imported.alias || f.name.replace(/\.[^.]+$/,'')) : f.name.replace(/\.[^.]+$/,'');
-  const sel = state.selectedFile === (imported?.id || f.path);
-
-  return `<div class="explorer-row ${imported?'imported':''} ${sel?'selected':''}" onclick="explorerSelectFile('${(imported?.id||'').replace(/'/g,"\\'")}','${f.path.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'")}',${f.size||0},${f.fileid||0})">
-    <span style="font-size:14px;width:20px;text-align:center;color:var(--text3)">♪</span>
-    <span style="font-family:'Funnel Display',sans-serif;font-size:13px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${displayName}</span>
-    ${imported ? `<span class="explorer-badge-imported">✓</span>` : `<span class="explorer-badge-new">+</span>`}
-    <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${formatSize(f.size)}</span>
-  </div>`;
+  if (imported) return renderSoundRow(imported, 'explorer-imported');
+  return renderSoundRow({ name: f.name, path: f.path, size: f.size, fileid: f.fileid }, 'explorer-new');
 }
 
 function explorerSelectFile(importedId, path, name, size, fileid) {
