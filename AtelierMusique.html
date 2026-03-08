@@ -1247,7 +1247,7 @@
       <div class="stat-row"><span>Fichiers</span><span id="statFiles">0</span></div>
       <div class="stat-row"><span>Dossiers</span><span id="statFolders">0</span></div>
       <div class="stat-row"><span>Tags</span><span id="statTags">0</span></div>
-      <div class="stat-row"><span>Stockage</span><span id="statStorage">—</span></div>
+
     </div>
   </aside>
 
@@ -2023,8 +2023,6 @@ function renderSidebar() {
   document.getElementById('statFiles').textContent = state.files.length;
   document.getElementById('statFolders').textContent = state.folders.length;
   document.getElementById('statTags').textContent = [...new Set(state.files.flatMap(f=>f.tags))].length;
-  const total = state.files.reduce((s,f) => s+(f.size||0), 0);
-  if (total > 0) document.getElementById('statStorage').textContent = formatSize(total);
 }
 
 function renderFiles() {
