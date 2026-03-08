@@ -1406,6 +1406,10 @@ let state = {
 const DB_FILENAME = 'ateliermusique_db.json';
 const DB_PCLOUD_PATH = '/' + DB_FILENAME;
 
+// Cloudflare Worker proxy pour le streaming audio (contourne erreur 7010 pCloud)
+// Remplacez par l'URL de votre Worker après déploiement
+const PROXY_URL = 'https://am.enoludo.workers.dev';
+
 // ============================================================
 //  AES-GCM ENCRYPTION — clé basée sur userid (stable, pas le token)
 // ============================================================
@@ -2247,13 +2251,18 @@ async function playerPlay(f) {
       url = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
       showToast('Mode démo — connexion pCloud requise pour la lecture');
     } else {
-      // getfilelink et getaudiolink sont bloqués depuis les apps web (erreur 7010)
-      // Solution : getfilepublink crée un lien public temporaire sans restriction de Referer
-      const idParam = f.pcloudId ? { fileid: f.pcloudId } : { path: f.originalPath };
-      const res = await pcloudApi('getfilepublink', idParam);
-      if (res.result !== 0) throw new Error(res.error || 'Lien public indisponible');
-      // Le lien public est streamable directement depuis n'importe quel domaine
-      url = res.link;
+      // Streaming via Cloudflare Worker proxy (contourne erreur 7010 pCloud)
+      if (!PROXY_URL || PROXY_URL.includes('VOTRENOM')) {
+        throw new Error('Proxy non configuré — voir pcloud-proxy-worker.js');
+      }
+      const params = new URLSearchParams({
+        auth:   state.pcloud.token,
+        server: state.pcloud.server,
+      });
+      if (f.pcloudId) params.set('fileid', f.pcloudId);
+      else            params.set('path',   f.originalPath);
+
+      url = `${PROXY_URL}?${params.toString()}`;
     }
 
     audio.src = url;
