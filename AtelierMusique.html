@@ -2247,13 +2247,16 @@ async function playerPlay(f) {
       url = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
       showToast('Mode démo — connexion pCloud requise pour la lecture');
     } else {
-      // Get streaming link from pCloud
-      const idParam = f.pcloudId ? { fileid: f.pcloudId } : { path: f.originalPath };
-      const res = await pcloudApi('getfilelink', idParam);
-      if (res.result !== 0) throw new Error(res.error || 'Lien indisponible');
-      // Build URL using the hosts returned by pCloud (not CDN)
-      const host = res.hosts[0];
-      url = `https://${host}${res.path}`;
+      // pCloud /file endpoint — stream direct via API, bypass CDN (évite erreur 7010 referer)
+      // On construit l'URL de streaming directement sans passer par le CDN
+      const server = state.pcloud.server;
+      const token  = encodeURIComponent(state.pcloud.token);
+
+      if (f.pcloudId) {
+        url = `https://${server}/file?fileid=${f.pcloudId}&auth=${token}&forcedownload=0`;
+      } else {
+        url = `https://${server}/file?path=${encodeURIComponent(f.originalPath)}&auth=${token}&forcedownload=0`;
+      }
     }
 
     audio.src = url;
