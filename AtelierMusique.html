@@ -2247,12 +2247,13 @@ async function playerPlay(f) {
       url = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
       showToast('Mode démo — connexion pCloud requise pour la lecture');
     } else {
-      // getaudiolink est l'endpoint pCloud conçu pour le streaming web
-      // contrairement à getfilelink, il n'est pas bloqué par le referer
+      // getfilelink et getaudiolink sont bloqués depuis les apps web (erreur 7010)
+      // Solution : getfilepublink crée un lien public temporaire sans restriction de Referer
       const idParam = f.pcloudId ? { fileid: f.pcloudId } : { path: f.originalPath };
-      const res = await pcloudApi('getaudiolink', { ...idParam, abitrate: 320 });
-      if (res.result !== 0) throw new Error(res.error || 'Lien audio indisponible');
-      url = `https://${res.hosts[0]}${res.path}`;
+      const res = await pcloudApi('getfilepublink', idParam);
+      if (res.result !== 0) throw new Error(res.error || 'Lien public indisponible');
+      // Le lien public est streamable directement depuis n'importe quel domaine
+      url = res.link;
     }
 
     audio.src = url;
