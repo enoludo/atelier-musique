@@ -2418,13 +2418,12 @@ function getFileMarkers() {
 }
 
 function saveMarker(marker) {
-  if (!playerFileId) return;
   const f = state.files.find(f => f.id === playerFileId);
-  if (!f) return;
+  if (!f) { showToast('Importez ce son pour sauvegarder des marqueurs'); return; }
   if (!f.markers) f.markers = [];
   f.markers.push(marker);
   f.markers.sort((a, b) => a.time - b.time);
-  scheduleSave();
+  save();
   renderMarkers();
 }
 
@@ -2433,7 +2432,16 @@ function deleteMarker(markerId) {
   const f = state.files.find(f => f.id === playerFileId);
   if (!f || !f.markers) return;
   f.markers = f.markers.filter(m => m.id !== markerId);
-  scheduleSave();
+  save();
+  renderMarkers();
+}
+
+function deleteMarker(markerId) {
+  if (!playerFileId) return;
+  const f = state.files.find(f => f.id === playerFileId);
+  if (!f || !f.markers) return;
+  f.markers = f.markers.filter(m => m.id !== markerId);
+  save();
   renderMarkers();
 }
 
@@ -2459,14 +2467,13 @@ function renderMarkers() {
 }
 
 function playerAddMarker() {
-  if (!audio.src || !playerFileId) { showToast('Aucun son en cours'); return; }
-  const t = audio.currentTime;
-  openMarkerInput(t);
+  if (!audio.src) { showToast('Aucun son en cours'); return; }
+  openMarkerInput(audio.currentTime);
 }
 
 function playerAddMarkerAtClick(e) {
   e.preventDefault();
-  if (!audio.src || !playerFileId) return;
+  if (!audio.src) return;
   const bar = document.getElementById('playerProgress');
   const rect = bar.getBoundingClientRect();
   const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
