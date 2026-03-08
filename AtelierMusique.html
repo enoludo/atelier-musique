@@ -1906,6 +1906,8 @@ function quickAddToFolder(fileId, folderId) {
     showToast(`Ajouté à "${vf?.name}" ✓`);
   }
 }
+
+function renderDetailFolders(f) {
   const assigned = document.getElementById('detailFoldersList');
   const addArea = document.getElementById('detailFoldersAdd');
   if (!f.folders) f.folders = f.folder ? [f.folder] : [];
