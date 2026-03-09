@@ -3164,14 +3164,12 @@ function renderExplorerFolderRow(f) {
 
 function renderExplorerFileCard(f) {
   const imported = state.files.find(sf => (sf.pcloudId && sf.pcloudId === f.fileid) || sf.originalPath === f.path);
-  if (imported) return renderSoundCard(imported, 'explorer-imported');
-  return renderSoundCard({ name: f.name, path: f.path, size: f.size, fileid: f.fileid }, 'explorer-new');
+  return renderSoundCard(imported || { name: f.name, path: f.path, size: f.size, fileid: f.fileid, _notImported: true }, 'explorer');
 }
 
 function renderExplorerFileRow(f) {
   const imported = state.files.find(sf => (sf.pcloudId && sf.pcloudId === f.fileid) || sf.originalPath === f.path);
-  if (imported) return renderSoundRow(imported, 'explorer-imported');
-  return renderSoundRow({ name: f.name, path: f.path, size: f.size, fileid: f.fileid }, 'explorer-new');
+  return renderSoundRow(imported || { name: f.name, path: f.path, size: f.size, fileid: f.fileid, _notImported: true }, 'explorer');
 }
 
 function explorerSelectFile(importedId, path, name, size, fileid) {
