@@ -2140,8 +2140,14 @@ function addFolder() {
 }
 
 function deleteFolder(id) {
+  const folder = state.folders.find(f => f.id === id);
+  if (!folder) return;
+  const count = state.files.filter(f => (f.folders||[]).includes(id)).length;
+  const msg = count > 0
+    ? `Supprimer le dossier "${folder.name}" ? Il contient ${count} fichier(s) — ceux-ci ne seront pas supprimés.`
+    : `Supprimer le dossier "${folder.name}" ?`;
+  if (!confirm(msg)) return;
   state.folders = state.folders.filter(f => f.id !== id);
-  // Retirer le dossier de tous les fichiers qui l'ont
   state.files.forEach(f => { f.folders = (f.folders || []).filter(fid => fid !== id); });
   if (state.selectedFolder === id) state.selectedFolder = 'all';
   save(); renderSidebar(); renderFiles();
