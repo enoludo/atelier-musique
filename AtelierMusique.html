@@ -2080,9 +2080,14 @@ async function autoSyncLibrary() {
   if (!state.pcloud.connected) return;
   try {
     const files = await scanFolder(EXPLORER_ROOT, AUDIO_EXTENSIONS, true);
-    let added = 0;
+    // Index path→fichier pCloud pour lookup rapide
+    const pcloudIndex = {};
+    files.forEach(f => { pcloudIndex[f.path] = f; });
+
+    let added = 0, hashUpdated = 0;
     files.forEach(f => {
-      if (!state.files.find(sf => sf.originalPath === f.path)) {
+      const existing = state.files.find(sf => sf.originalPath === f.path);
+      if (!existing) {
         state.files.push({
           id: 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2),
           originalName: f.name,
@@ -2091,14 +2096,20 @@ async function autoSyncLibrary() {
           notes: '', tags: [], folders: [],
           pcloudId: f.id || null,
           size: f.size || 0,
+          hash: f.hash || null,
           duration: null
         });
         added++;
+      } else if (!existing.hash && f.hash) {
+        // Mettre à jour le hash manquant
+        existing.hash = f.hash;
+        hashUpdated++;
       }
     });
-    if (added > 0) {
+
+    if (added > 0 || hashUpdated > 0) {
       save(); render();
-      showToast(`${added} nouveau(x) fichier(s) ajouté(s) à la bibliothèque`);
+      if (added > 0) showToast(`${added} nouveau(x) fichier(s) ajouté(s) à la bibliothèque`);
     }
   } catch(e) {
     console.warn('autoSyncLibrary échoué:', e.message);
