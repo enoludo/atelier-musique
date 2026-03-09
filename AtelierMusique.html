@@ -2495,7 +2495,7 @@ async function playerPlay(f) {
         audio.onerror = async () => {
           audio.onerror = null;
           console.warn('fileid invalide, fallback sur path');
-          audio.src = `${PROXY_URL}?${pathParams}`;
+          audio.src = pathParams;
           audio.load();
           try { await audio.play(); playerSetPlayIcon(true); }
           catch(e) { showToast(`Fichier introuvable sur pCloud (${f.originalName})`); playerSetPlayIcon(false); }
@@ -2517,14 +2517,19 @@ async function playerPlay(f) {
 async function resolveStreamUrl(f) {
   const base = { auth: state.pcloud.token, server: state.pcloud.server };
 
-  // On tente d'abord par fileid, avec fallback sur path si erreur HTTP
+  const buildUrl = (extra) => {
+    const params = new URLSearchParams({ ...base, ...extra });
+    // URLSearchParams encode les espaces en + — pCloud exige %20
+    return `${PROXY_URL}?${params.toString().replace(/\+/g, '%20')}`;
+  };
+
   if (f.pcloudId) {
-    const params = new URLSearchParams({ ...base, fileid: f.pcloudId });
-    return { url: `${PROXY_URL}?${params}`, hasPath: !!f.originalPath, pathParams: f.originalPath ? new URLSearchParams({ ...base, path: f.originalPath }).toString() : null };
+    const url = buildUrl({ fileid: f.pcloudId });
+    const pathUrl = f.originalPath ? buildUrl({ path: f.originalPath }) : null;
+    return { url, hasPath: !!pathUrl, pathParams: pathUrl };
   }
   if (f.originalPath) {
-    const params = new URLSearchParams({ ...base, path: f.originalPath });
-    return { url: `${PROXY_URL}?${params}`, hasPath: false };
+    return { url: buildUrl({ path: f.originalPath }), hasPath: false, pathParams: null };
   }
   throw new Error('Aucun identifiant disponible pour ce fichier');
 }
