@@ -2401,6 +2401,7 @@ function selectFile(id) {
   renderDetailTags(f);
   renderDetailFolders(f);
   if (appMode === 'library') renderFiles();
+  if (appMode === 'explorer') renderExplorer(explorerFolders, explorerFiles);
 }
 
 function renderDetailTags(f) {
@@ -3174,10 +3175,14 @@ function renderExplorerFileRow(f) {
 }
 
 function explorerSelectFile(importedId, path, name, size, fileid) {
-  // Surbrillance uniquement — pas d'ouverture de detail panel en mode explorateur
-  state.selectedFile = importedId || path;
-  // Re-render pour appliquer la classe selected
-  renderExplorer(explorerFolders, explorerFiles);
+  if (importedId) {
+    selectFile(importedId);
+  } else {
+    // Cas rare — fichier pas encore importé
+    state.selectedFile = path;
+    showQuickImport(path, name, size, fileid);
+    renderExplorer(explorerFolders, explorerFiles);
+  }
 }
 
 function showQuickImport(path, name, size, fileid) {
