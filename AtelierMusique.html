@@ -2518,8 +2518,7 @@ async function resolveStreamUrl(f) {
   throw new Error('Aucun identifiant disponible pour ce fichier');
 }
 
-
-  document.getElementById('iconPlay').style.display  = playing ? 'none'  : 'block';
+function playerSetPlayIcon(playing) {
   document.getElementById('iconPause').style.display = playing ? 'block' : 'none';
 }
 
