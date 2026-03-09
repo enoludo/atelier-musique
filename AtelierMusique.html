@@ -2467,26 +2467,45 @@ async function playerPlay(f) {
   // Show loading state
   document.getElementById('iconPlay').style.display = 'none';
   document.getElementById('iconPause').style.display = 'none';
-  playBtn.innerHTML += '<span id="playerSpinner" style="font-size:11px;font-family:DM Mono,monospace;color:var(--text3)">…</span>';
+  document.getElementById('playerSpinner')?.remove();
+  const spinner = document.createElement('span');
+  spinner.id = 'playerSpinner';
+  spinner.style.cssText = 'font-size:11px;font-family:DM Mono,monospace;color:var(--text3)';
+  spinner.textContent = '…';
+  playBtn.appendChild(spinner);
 
   try {
-    let url;
     if (!state.pcloud.connected) {
       // Demo mode — use a silent placeholder
-      url = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+      audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
       showToast('Mode démo — connexion pCloud requise pour la lecture');
+      audio.load();
+      await audio.play();
+      playerSetPlayIcon(true);
     } else {
       // Streaming via Cloudflare Worker proxy (contourne erreur 7010 pCloud)
       if (!PROXY_URL || PROXY_URL.includes('VOTRENOM')) {
         throw new Error('Proxy non configuré — voir pcloud-proxy-worker.js');
       }
-      url = await resolveStreamUrl(f);
-    }
+      const { url, hasPath, pathParams } = await resolveStreamUrl(f);
+      audio.src = url;
 
-    audio.src = url;
-    audio.load();
-    await audio.play();
-    playerSetPlayIcon(true);
+      // Si le fileid échoue (410), on tente le fallback par path
+      if (hasPath) {
+        audio.onerror = async () => {
+          audio.onerror = null;
+          console.warn('fileid invalide, fallback sur path');
+          audio.src = `${PROXY_URL}?${pathParams}`;
+          audio.load();
+          try { await audio.play(); playerSetPlayIcon(true); }
+          catch(e) { showToast(`Fichier introuvable sur pCloud (${f.originalName})`); playerSetPlayIcon(false); }
+        };
+      }
+
+      audio.load();
+      await audio.play();
+      playerSetPlayIcon(true);
+    }
   } catch(e) {
     showToast(`Erreur lecture : ${e.message}`);
     playerSetPlayIcon(false);
@@ -2498,27 +2517,21 @@ async function playerPlay(f) {
 async function resolveStreamUrl(f) {
   const base = { auth: state.pcloud.token, server: state.pcloud.server };
 
-  // Tentative 1 : par fileid
+  // On tente d'abord par fileid, avec fallback sur path si erreur HTTP
   if (f.pcloudId) {
     const params = new URLSearchParams({ ...base, fileid: f.pcloudId });
-    const res = await fetch(`${PROXY_URL}?${params}`);
-    if (res.ok) return `${PROXY_URL}?${params}`;
-    // 410 Gone ou autre → fileid obsolète, on tente par path
-    console.warn(`fileid ${f.pcloudId} invalide (${res.status}), fallback sur path`);
+    return { url: `${PROXY_URL}?${params}`, hasPath: !!f.originalPath, pathParams: f.originalPath ? new URLSearchParams({ ...base, path: f.originalPath }).toString() : null };
   }
-
-  // Tentative 2 : par path
   if (f.originalPath) {
     const params = new URLSearchParams({ ...base, path: f.originalPath });
-    const res = await fetch(`${PROXY_URL}?${params}`);
-    if (res.ok) return `${PROXY_URL}?${params}`;
-    throw new Error(`Fichier introuvable sur pCloud — vérifiez qu'il existe encore (${f.originalName})`);
+    return { url: `${PROXY_URL}?${params}`, hasPath: false };
   }
-
   throw new Error('Aucun identifiant disponible pour ce fichier');
 }
 
 function playerSetPlayIcon(playing) {
+  document.getElementById('playerSpinner')?.remove();
+  document.getElementById('iconPlay').style.display  = playing ? 'none'  : 'block';
   document.getElementById('iconPause').style.display = playing ? 'block' : 'none';
 }
 
