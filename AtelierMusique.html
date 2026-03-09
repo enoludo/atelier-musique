@@ -2641,11 +2641,7 @@ function resolveStreamUrl(f) {
     return `${PROXY_URL}?${params.toString().replace(/\+/g, '%20')}`;
   };
 
-  if (f.pcloudId) {
-    const url = buildUrl({ fileid: f.pcloudId });
-    const pathUrl = f.originalPath ? buildUrl({ path: f.originalPath }) : null;
-    return { url, hasPath: !!pathUrl, pathParams: pathUrl };
-  }
+  // Toujours utiliser le path — le fileid génère des liens CDN instables
   if (f.originalPath) {
     return { url: buildUrl({ path: f.originalPath }), hasPath: false, pathParams: null };
   }
