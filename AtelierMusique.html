@@ -2038,6 +2038,7 @@ async function scanPCloud() {
           notes: '', tags: [], folders: [],
           pcloudId: f.id || null,
           size: f.size || 0,
+          hash: f.hash || null,
           duration: null
         });
         added++;
@@ -2069,7 +2070,7 @@ async function scanFolder(path, exts, recursive) {
       if (recursive) files = files.concat(await scanFolder(item.path, exts, true));
     } else {
       const ext = item.name.split('.').pop().toLowerCase();
-      if (exts.includes(ext)) files.push({ name: item.name, path: item.path, id: item.fileid, size: item.size });
+      if (exts.includes(ext)) files.push({ name: item.name, path: item.path, id: item.fileid, size: item.size, hash: item.hash || null });
     }
   }
   return files;
@@ -2395,7 +2396,19 @@ function updateSelectedFile() {
   f.alias = document.getElementById('editAlias').value;
   f.notes = document.getElementById('editNotes').value;
   document.getElementById('detailAlias').textContent = f.alias || f.originalName;
+  propagateToTwins(f);
   save(); renderFiles(); renderSidebar();
+}
+
+// Propage alias/tags/notes aux fichiers avec le même hash pCloud (doublons de contenu)
+function propagateToTwins(source) {
+  if (!source.hash) return;
+  state.files.forEach(f => {
+    if (f.id === source.id || f.hash !== source.hash) return;
+    f.alias  = source.alias;
+    f.notes  = source.notes;
+    f.tags   = [...source.tags];
+  });
 }
 
 function toggleFolderDropdown(fileId, btn) {
@@ -2592,14 +2605,14 @@ function addTagToSelected() {
   const tag = input.value.trim().toLowerCase().replace(/\s+/g,'_');
   if (!tag) return;
   const f = state.files.find(f => f.id === state.selectedFile);
-  if (f && !f.tags.includes(tag)) { f.tags.push(tag); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
+  if (f && !f.tags.includes(tag)) { f.tags.push(tag); propagateToTwins(f); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
   input.value = '';
   closeTagAutocomplete();
 }
 
 function removeTagFromFile(fileId, tag) {
   const f = state.files.find(f => f.id === fileId);
-  if (f) { f.tags = f.tags.filter(t => t !== tag); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
+  if (f) { f.tags = f.tags.filter(t => t !== tag); propagateToTwins(f); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
 }
 
 function toggleTag(tag) {
