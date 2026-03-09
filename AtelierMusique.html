@@ -1719,6 +1719,7 @@ async function connectWithPassword() {
 
     await loadFromPCloud();
     render();
+    autoSyncLibrary();
 
   } catch(e) {
     errEl.style.display = 'block';
@@ -1764,6 +1765,7 @@ async function load() {
     state.pcloud.connected = true;
     updateConnectionBadge(true);
     await loadFromPCloud();
+    autoSyncLibrary();
   } else {
     // No token yet — load local cache for offline preview
     try {
@@ -1821,7 +1823,6 @@ async function loadFromPCloud() {
         setSyncStatus('synced', 'Synchronisé · ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
         state.lastSaved = Date.now();
         render();
-        autoSyncLibrary();
         return;
       }
     } catch(e) {
@@ -1840,7 +1841,6 @@ async function loadFromPCloud() {
     }
     state.lastSaved = Date.now();
     render();
-    autoSyncLibrary();
     return;
 
   } catch(e) {
