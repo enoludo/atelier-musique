@@ -2324,6 +2324,7 @@ function renderSoundCard(f, mode) {
     ${tagsHtml ? `<div class="sound-tags">${tagsHtml}</div>` : ''}
     <div class="sound-meta">
       <span>${formatSize(size)}</span>
+      ${f.duration ? `<span style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${formatTime(f.duration)}</span>` : ``}
       ${isNew ? `<span class="sound-badge-new">Non importé</span>` : folderBtn}
       <div class="card-folder-dropdown" id="fdd-${id}" style="display:none"></div>
     </div>
@@ -2351,11 +2352,18 @@ function renderSoundRow(f, mode) {
         ? `selectFile('${id}')`
         : `explorerSelectFile('${id}','${(f.originalPath||f.path||'').replace(/'/g,"\\'")}','${original.replace(/'/g,"\\'")}',${size},${fileid})`);
 
-  return `<div class="sound-row ${selected?'selected':''}" onclick="${onclick}">
+  const ondblclick = isNew
+    ? `event.stopPropagation();playerPlay({alias:'${alias.replace(/'/g,"\\'")}',originalName:'${original.replace(/'/g,"\\'")}',originalPath:'${(f.path||'').replace(/'/g,"\\'")}',pcloudId:${fileid||'null'}})`
+    : `event.stopPropagation();playerPlay(state.files.find(f=>f.id==='${id}'))`;
+
+  const duration = f.duration ? `<span class="sound-row-size">${formatTime(f.duration)}</span>` : '';
+
+  return `<div class="sound-row ${selected?'selected':''}" onclick="${onclick}" ondblclick="${ondblclick}">
     <span class="sound-row-icon">♪</span>
     <span class="sound-row-name">${alias}</span>
     <span class="sound-row-original">${original}</span>
     ${folderChips ? `<span class="sound-row-chips">${folderChips}</span>` : ''}
+    ${duration}
     <span class="sound-row-size">${formatSize(size)}</span>
   </div>`;
 }
@@ -2967,6 +2975,8 @@ function folderSVG(size=16, color='currentColor') {
 }
 let appMode = 'explorer';
 let explorerPath = '/02-MUSIQUE/01-ATELIER MUSIQUE';
+let explorerFolders = [];
+let explorerFiles = [];
 const EXPLORER_ROOT = '/02-MUSIQUE/01-ATELIER MUSIQUE';
 let explorerCache = {}; // path → contents
 
@@ -3037,6 +3047,8 @@ async function explorerGoTo(path) {
     });
     if (syncChanged) { save(); }
 
+    explorerFolders = folders;
+    explorerFiles = files;
     renderExplorer(folders, files);
   } catch(e) {
     grid.innerHTML = `<div style="padding:40px;text-align:center;font-size:13px;color:var(--danger);font-family:'DM Mono',monospace">Erreur: ${e.message}</div>`;
@@ -3169,7 +3181,7 @@ function explorerSelectFile(importedId, path, name, size, fileid) {
     state.selectedFile = path;
     showQuickImport(path, name, size, fileid);
   }
-  if (appMode === 'explorer') explorerGoTo(explorerPath);
+  if (appMode === 'explorer') renderExplorer(explorerFolders, explorerFiles);
 }
 
 function showQuickImport(path, name, size, fileid) {
