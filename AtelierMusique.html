@@ -1184,20 +1184,36 @@
   }
   .marker-input-actions button:hover { opacity: 0.8; }
 
-  .folder-delete-btn {
-    display: none;
-    background: none;
-    border: none;
-    color: var(--text3);
-    font-size: 10px;
-    cursor: pointer;
-    padding: 0 2px;
-    line-height: 1;
-    flex-shrink: 0;
-    transition: color 0.15s;
+  .folder-share-btn {
+    background: none; border: none; cursor: pointer; padding: 2px 3px;
+    color: var(--text3); font-size: 13px; line-height: 1; flex-shrink: 0;
+    transition: color .15s; display: none;
   }
-  .folder-item:hover .folder-delete-btn { display: block; }
-  .folder-delete-btn:hover { color: #ff6b6b; }
+  .folder-share-btn.active {
+    display: block; color: var(--accent);
+  }
+  .folder-item:hover .folder-share-btn { display: block; }
+  .folder-share-btn:hover { color: var(--text); }
+  .folder-menu-btn {
+    display: block; background: none; border: none; color: var(--text2);
+    font-size: 13px; cursor: pointer; padding: 0 2px; line-height: 1;
+    flex-shrink: 0; transition: color .15s;
+  }
+  .folder-menu-btn:hover { color: var(--text); }
+  .folder-contextmenu {
+    position: absolute; right: 0; top: 100%; z-index: 200;
+    background: var(--surface2); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; min-width: 160px; padding: 4px 0;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .folder-contextmenu-item {
+    display: block; width: 100%; background: none; border: none;
+    color: var(--text); font-size: 12px; font-family: 'Funnel Sans', sans-serif;
+    padding: 7px 14px; text-align: left; cursor: pointer; white-space: nowrap;
+    transition: background .1s;
+  }
+  .folder-contextmenu-item:hover { background: rgba(255,255,255,0.07); }
+  .folder-contextmenu-item.danger { color: #ff6b6b; }
 
   .missing-header {
     display: flex; align-items: baseline; gap: 12px;
@@ -2238,6 +2254,47 @@ function addFolder() {
   document.getElementById('newFolderName').value = '';
 }
 
+function toggleFolderMenu(id, btn) {
+  // Fermer tous les menus ouverts
+  document.querySelectorAll('.folder-contextmenu').forEach(m => {
+    if (m.id !== 'fmenu-' + id) m.style.display = 'none';
+  });
+  const menu = document.getElementById('fmenu-' + id);
+  if (!menu) return;
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  // Fermer au clic extérieur
+  if (menu.style.display === 'block') {
+    setTimeout(() => {
+      document.addEventListener('click', function close() {
+        menu.style.display = 'none';
+        document.removeEventListener('click', close);
+      }, { once: true });
+    }, 0);
+  }
+}
+
+function duplicateFolder(id) {
+  document.querySelectorAll('.folder-contextmenu').forEach(m => m.style.display = 'none');
+  const folder = state.folders.find(f => f.id === id);
+  if (!folder) return;
+  const newFolder = {
+    id: 'dir_' + Date.now(),
+    name: folder.name + ' (copie)',
+    color: folder.color,
+    shared: false
+  };
+  state.folders.push(newFolder);
+  // Copier les fichiers associés
+  state.files.forEach(f => {
+    if ((f.folders || []).includes(id)) {
+      if (!f.folders) f.folders = [];
+      f.folders.push(newFolder.id);
+    }
+  });
+  save(); renderSidebar(); renderFiles();
+  showToast(`"${newFolder.name}" créé ✓`);
+}
+
 function deleteFolder(id) {
   const folder = state.folders.find(f => f.id === id);
   if (!folder) return;
@@ -2312,8 +2369,14 @@ function renderSidebar() {
       <span class="folder-icon">${folderSVG(14, f.color)}</span>
       <span data-folderid="${f.id}" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text" ondblclick="event.stopPropagation();renameFolderInline('${f.id}')">${f.name}</span>
       <span class="folder-count">${count}</span>
-      <button class="folder-share-btn ${f.shared?'active':''}" onclick="event.stopPropagation();toggleShareFolder('${f.id}')" title="${f.shared?'Partagé — cliquer pour arrêter':'Partager'}">⇅</button>
-      <button class="folder-delete-btn" onclick="event.stopPropagation();deleteFolder('${f.id}')" title="Supprimer">✕</button>
+      <button class="folder-share-btn ${f.shared?'active':''}" onclick="event.stopPropagation();toggleShareFolder('${f.id}')" title="${f.shared?'Partagé — cliquer pour arrêter':'Partager'}">⇌</button>
+      <div style="position:relative;flex-shrink:0">
+        <button class="folder-menu-btn" onclick="event.stopPropagation();toggleFolderMenu('${f.id}',this)" title="Options">⋮</button>
+        <div class="folder-contextmenu" id="fmenu-${f.id}" style="display:none">
+          <button class="folder-contextmenu-item" onclick="event.stopPropagation();duplicateFolder('${f.id}')">Dupliquer ce dossier</button>
+          <button class="folder-contextmenu-item danger" onclick="event.stopPropagation();deleteFolder('${f.id}')">Supprimer ce dossier</button>
+        </div>
+      </div>
     </div>`;
   }).join('');
 
