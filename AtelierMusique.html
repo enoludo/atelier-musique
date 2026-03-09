@@ -2602,51 +2602,28 @@ async function playerPlay(f) {
       await audio.play();
       playerSetPlayIcon(true);
     } else {
-      // Streaming via Cloudflare Worker proxy
+      // Streaming via Cloudflare Worker proxy (contourne erreur 7010 pCloud)
       if (!PROXY_URL || PROXY_URL.includes('VOTRENOM')) {
         throw new Error('Proxy non configuré — voir pcloud-proxy-worker.js');
       }
-
       const { url, hasPath, pathParams } = resolveStreamUrl(f);
-
-      // En cas d'erreur (lien CDN expiré après seek), on recharge avec URL fraîche
-      audio.onerror = async () => {
-        const resumeTime = audio.currentTime || 0;
-        audio.onerror = null;
-        try {
-          const { url: freshUrl, hasPath: hp, pathParams: pp } = resolveStreamUrl(f);
-          let streamUrl = freshUrl;
-          // Tester si fileid fonctionne, sinon fallback path
-          const testRes = await fetch(streamUrl, { method: 'HEAD' }).catch(() => null);
-          if (testRes && !testRes.ok && hp) streamUrl = pp;
-          audio.src = streamUrl;
-          audio.load();
-          audio.currentTime = resumeTime;
-          await audio.play();
-          playerSetPlayIcon(true);
-        } catch(e2) {
-          showToast(`Erreur relecture : ${e2.message}`);
-          playerSetPlayIcon(false);
-        }
-      };
-
-      // Fallback fileid → path si fileid échoue au premier chargement
       audio.src = url;
-      audio.load();
-      try {
-        await audio.play();
-        playerSetPlayIcon(true);
-      } catch(e) {
-        if (hasPath) {
+
+      // Si le fileid échoue (410), on tente le fallback par path
+      if (hasPath) {
+        audio.onerror = async () => {
           audio.onerror = null;
+          console.warn('fileid invalide, fallback sur path');
           audio.src = pathParams;
           audio.load();
-          await audio.play();
-          playerSetPlayIcon(true);
-        } else {
-          throw e;
-        }
+          try { await audio.play(); playerSetPlayIcon(true); }
+          catch(e) { showToast(`Fichier introuvable sur pCloud (${f.originalName})`); playerSetPlayIcon(false); }
+        };
       }
+
+      audio.load();
+      await audio.play();
+      playerSetPlayIcon(true);
     }
   } catch(e) {
     showToast(`Erreur lecture : ${e.message}`);
