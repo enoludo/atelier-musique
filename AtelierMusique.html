@@ -2637,7 +2637,7 @@ function resolveStreamUrl(f) {
   const base = { auth: state.pcloud.token, server: state.pcloud.server };
 
   const buildUrl = (extra) => {
-    const params = new URLSearchParams({ ...base, ...extra });
+    const params = new URLSearchParams({ ...base, ...extra, _: Date.now() });
     return `${PROXY_URL}?${params.toString().replace(/\+/g, '%20')}`;
   };
 
