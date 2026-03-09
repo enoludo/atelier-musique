@@ -420,7 +420,6 @@
   }
   .sound-card:hover { border-color: var(--text2); transform: translateY(-1px); }
   .sound-card.selected { border-color: var(--accent); background: rgba(255,255,255,0.02); }
-  .sound-card.imported { border-color: rgba(255,255,255,0.20); }
   .sound-card:hover .sound-waveform,
   .sound-card.selected .sound-waveform { color: rgba(255,255,255,0.65); }
 
@@ -2282,41 +2281,39 @@ function renderFiles() {
 
 // ── UNIFIED SOUND CARD / ROW ──────────────────────────────────
 function renderSoundCard(f, mode) {
-  const isNew = mode === 'explorer-new';
-  const id = isNew ? '' : f.id;
-  const alias = isNew ? f.name.replace(/\.[^.]+$/, '') : (f.alias || f.originalName.replace(/\.[^.]+$/, ''));
-  const original = isNew ? f.name : f.originalName;
+  const id = f.id || '';
+  const alias = f.alias || (f.originalName || f.name || '').replace(/\.[^.]+$/, '');
+  const original = f.originalName || f.name || '';
   const size = f.size || 0;
   const fileid = f.fileid || f.pcloudId || 0;
-  const selected = state.selectedFile === (id || f.path);
+  const path = f.originalPath || f.path || '';
+  const selected = state.selectedFile === (id || path);
   const bars = soundSVG(22);
 
-  const fileFolders = isNew ? [] : (f.folders || (f.folder ? [f.folder] : []));
+  const fileFolders = f.folders || (f.folder ? [f.folder] : []);
   const folderChips = fileFolders.slice(0, 2).map(fid => {
     const vf = state.folders.find(v => v.id === fid);
     return vf ? `<span class="sound-chip"><span class="sound-chip-dot" style="background:${vf.color}"></span>${vf.name}</span>` : '';
   }).join('') + (fileFolders.length > 2 ? `<span class="sound-chip">+${fileFolders.length-2}</span>` : '');
 
-  const tags = isNew ? [] : (f.tags || []);
+  const tags = f.tags || [];
   const tagsHtml = tags.slice(0, 2).map(t => `<span class="sound-tag">${t}</span>`).join('') +
     (tags.length > 2 ? `<span class="sound-tag">+${tags.length-2}</span>` : '');
 
-  const available = isNew ? [] : state.folders.filter(vf => !fileFolders.includes(vf.id));
-  const folderBtn = (!isNew && available.length > 0)
+  const available = state.folders.filter(vf => !fileFolders.includes(vf.id));
+  const folderBtn = (id && available.length > 0)
     ? `<button class="card-folder-btn" onclick="event.stopPropagation();toggleFolderDropdown('${id}',this)">+ dossier</button>`
     : '';
 
-  const onclick = isNew
-    ? `explorerSelectFile('','${f.path.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'")}',${size},${fileid})`
-    : (mode === 'library'
-        ? `selectFile('${id}')`
-        : `explorerSelectFile('${id}','${(f.originalPath||f.path||'').replace(/'/g,"\\'")}','${original.replace(/'/g,"\\'")}',${size},${fileid})`);
+  const onclick = mode === 'library'
+    ? `selectFile('${id}')`
+    : `explorerSelectFile('${id}','${path.replace(/'/g,"\\'")}','${original.replace(/'/g,"\\'")}',${size},${fileid})`;
 
-  const ondblclick = isNew
-    ? `event.stopPropagation();playerPlay({alias:'${alias.replace(/'/g,"\\'")}',originalName:'${original.replace(/'/g,"\\'")}',originalPath:'${(f.path||'').replace(/'/g,"\\'")}',pcloudId:${fileid||'null'}})`
-    : `event.stopPropagation();playerPlay(state.files.find(f=>f.id==='${id}'))`;
+  const ondblclick = id
+    ? `event.stopPropagation();playerPlay(state.files.find(f=>f.id==='${id}'))`
+    : `event.stopPropagation();playerPlay({alias:'${alias.replace(/'/g,"\\'")}',originalName:'${original.replace(/'/g,"\\'")}',originalPath:'${path.replace(/'/g,"\\'")}',pcloudId:${fileid||'null'}})`;
 
-  return `<div class="sound-card ${selected?'selected':''} ${(!isNew&&mode!=='library')?'imported':''}" onclick="${onclick}" ondblclick="${ondblclick}">
+  return `<div class="sound-card ${selected?'selected':''}" onclick="${onclick}" ondblclick="${ondblclick}">
     <div class="sound-waveform">${bars}</div>
     <div class="sound-name">${alias}</div>
     <div class="sound-original">${original}</div>
@@ -2324,37 +2321,35 @@ function renderSoundCard(f, mode) {
     ${tagsHtml ? `<div class="sound-tags">${tagsHtml}</div>` : ''}
     <div class="sound-meta">
       <span>${formatSize(size)}</span>
-      ${f.duration ? `<span style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${formatTime(f.duration)}</span>` : ``}
-      ${isNew ? `<span class="sound-badge-new">Non importé</span>` : folderBtn}
+      ${f.duration ? `<span style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${formatTime(f.duration)}</span>` : ''}
+      ${folderBtn}
       <div class="card-folder-dropdown" id="fdd-${id}" style="display:none"></div>
     </div>
   </div>`;
 }
 
 function renderSoundRow(f, mode) {
-  const isNew = mode === 'explorer-new';
-  const id = isNew ? '' : f.id;
-  const alias = isNew ? f.name.replace(/\.[^.]+$/, '') : (f.alias || f.originalName.replace(/\.[^.]+$/, ''));
-  const original = isNew ? f.name : f.originalName;
+  const id = f.id || '';
+  const alias = f.alias || (f.originalName || f.name || '').replace(/\.[^.]+$/, '');
+  const original = f.originalName || f.name || '';
   const size = f.size || 0;
   const fileid = f.fileid || f.pcloudId || 0;
-  const selected = state.selectedFile === (id || f.path);
+  const path = f.originalPath || f.path || '';
+  const selected = state.selectedFile === (id || path);
 
-  const fileFolders = isNew ? [] : (f.folders || (f.folder ? [f.folder] : []));
+  const fileFolders = f.folders || (f.folder ? [f.folder] : []);
   const folderChips = fileFolders.slice(0,2).map(fid => {
     const vf = state.folders.find(v => v.id === fid);
     return vf ? `<span class="sound-chip"><span class="sound-chip-dot" style="background:${vf.color}"></span>${vf.name}</span>` : '';
   }).join('');
 
-  const onclick = isNew
-    ? `explorerSelectFile('','${f.path.replace(/'/g,"\\'")}','${f.name.replace(/'/g,"\\'")}',${size},${fileid})`
-    : (mode === 'library'
-        ? `selectFile('${id}')`
-        : `explorerSelectFile('${id}','${(f.originalPath||f.path||'').replace(/'/g,"\\'")}','${original.replace(/'/g,"\\'")}',${size},${fileid})`);
+  const onclick = mode === 'library'
+    ? `selectFile('${id}')`
+    : `explorerSelectFile('${id}','${path.replace(/'/g,"\\'")}','${original.replace(/'/g,"\\'")}',${size},${fileid})`;
 
-  const ondblclick = isNew
-    ? `event.stopPropagation();playerPlay({alias:'${alias.replace(/'/g,"\\'")}',originalName:'${original.replace(/'/g,"\\'")}',originalPath:'${(f.path||'').replace(/'/g,"\\'")}',pcloudId:${fileid||'null'}})`
-    : `event.stopPropagation();playerPlay(state.files.find(f=>f.id==='${id}'))`;
+  const ondblclick = id
+    ? `event.stopPropagation();playerPlay(state.files.find(f=>f.id==='${id}'))`
+    : `event.stopPropagation();playerPlay({alias:'${alias.replace(/'/g,"\\'")}',originalName:'${original.replace(/'/g,"\\'")}',originalPath:'${path.replace(/'/g,"\\'")}',pcloudId:${fileid||'null'}})`;
 
   const duration = f.duration ? `<span class="sound-row-size">${formatTime(f.duration)}</span>` : '';
 
@@ -2367,6 +2362,7 @@ function renderSoundRow(f, mode) {
     <span class="sound-row-size">${formatSize(size)}</span>
   </div>`;
 }
+
 
 function renderBreadcrumb() {
   const bc = document.getElementById('breadcrumb');
