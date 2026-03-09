@@ -1873,7 +1873,7 @@ async function resyncIds() {
     }
     await scanForIndex(EXPLORER_ROOT);
 
-    // Mettre à jour les pcloudId des fichiers importés
+    // Mettre à jour les pcloudId ET originalPath des fichiers importés
     for (const f of state.files) {
       if (f.originalPath && index[f.originalPath] !== undefined) {
         if (f.pcloudId !== index[f.originalPath]) {
@@ -1881,7 +1881,15 @@ async function resyncIds() {
           updated++;
         }
       } else if (f.originalPath) {
-        notFound++;
+        // Path introuvable — chercher par fileid dans l'index inversé
+        const newPath = Object.keys(index).find(p => index[p] === f.pcloudId);
+        if (newPath) {
+          f.originalPath = newPath;
+          f.originalName = newPath.split('/').pop();
+          updated++;
+        } else {
+          notFound++;
+        }
       }
     }
 
