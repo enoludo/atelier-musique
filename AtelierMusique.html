@@ -2480,14 +2480,7 @@ async function playerPlay(f) {
       if (!PROXY_URL || PROXY_URL.includes('VOTRENOM')) {
         throw new Error('Proxy non configuré — voir pcloud-proxy-worker.js');
       }
-      const params = new URLSearchParams({
-        auth:   state.pcloud.token,
-        server: state.pcloud.server,
-      });
-      if (f.pcloudId) params.set('fileid', f.pcloudId);
-      else            params.set('path',   f.originalPath);
-
-      url = `${PROXY_URL}?${params.toString()}`;
+      url = await resolveStreamUrl(f);
     }
 
     audio.src = url;
@@ -2502,7 +2495,30 @@ async function playerPlay(f) {
   }
 }
 
-function playerSetPlayIcon(playing) {
+async function resolveStreamUrl(f) {
+  const base = { auth: state.pcloud.token, server: state.pcloud.server };
+
+  // Tentative 1 : par fileid
+  if (f.pcloudId) {
+    const params = new URLSearchParams({ ...base, fileid: f.pcloudId });
+    const res = await fetch(`${PROXY_URL}?${params}`);
+    if (res.ok) return `${PROXY_URL}?${params}`;
+    // 410 Gone ou autre → fileid obsolète, on tente par path
+    console.warn(`fileid ${f.pcloudId} invalide (${res.status}), fallback sur path`);
+  }
+
+  // Tentative 2 : par path
+  if (f.originalPath) {
+    const params = new URLSearchParams({ ...base, path: f.originalPath });
+    const res = await fetch(`${PROXY_URL}?${params}`);
+    if (res.ok) return `${PROXY_URL}?${params}`;
+    throw new Error(`Fichier introuvable sur pCloud — vérifiez qu'il existe encore (${f.originalName})`);
+  }
+
+  throw new Error('Aucun identifiant disponible pour ce fichier');
+}
+
+
   document.getElementById('iconPlay').style.display  = playing ? 'none'  : 'block';
   document.getElementById('iconPause').style.display = playing ? 'block' : 'none';
 }
