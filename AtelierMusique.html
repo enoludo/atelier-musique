@@ -1200,6 +1200,28 @@
   .folder-item:hover .folder-delete-btn { display: block; }
   .folder-delete-btn:hover { color: #ff6b6b; }
 
+  .missing-header {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 10px 16px;
+    background: rgba(255, 100, 80, 0.08);
+    border: 1px solid rgba(255, 100, 80, 0.25);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: #ff6450;
+    font-family: 'DM Mono', monospace;
+  }
+  .missing-hint {
+    font-size: 10px;
+    color: var(--text3);
+    font-family: 'Funnel Sans', sans-serif;
+  }
+  .sound-card.missing {
+    border-color: rgba(255, 100, 80, 0.3);
+    opacity: 0.7;
+  }
+  .sound-card.missing .sound-waveform svg line { stroke: #ff6450; }
+
 </style>
 </head>
 <body>
@@ -1296,6 +1318,13 @@
         <div class="empty-icon">♫</div>
         <div class="empty-title">Bibliothèque vide</div>
         <div class="empty-sub">Naviguez dans l'explorateur et importez des fichiers pour commencer.</div>
+      </div>
+      <div id="missingSection" style="display:none">
+        <div class="missing-header">
+          <span>⚠ Fichiers introuvables sur pCloud</span>
+          <span class="missing-hint">Renommés ou déplacés — supprimez et ré-importez</span>
+        </div>
+        <div id="missingGrid" class="sound-grid"></div>
       </div>
       <div id="fileGrid" class="sound-grid" style="display:none"></div>
     </div>
@@ -1873,6 +1902,9 @@ async function resyncIds() {
     }
     await scanForIndex(EXPLORER_ROOT);
 
+    // Réinitialiser le flag missing avant de re-tester
+    state.files.forEach(f => { f.missing = false; });
+
     // Mettre à jour les pcloudId ET originalPath des fichiers importés
     for (const f of state.files) {
       if (f.originalPath && index[f.originalPath] !== undefined) {
@@ -1888,6 +1920,7 @@ async function resyncIds() {
           f.originalName = newPath.split('/').pop();
           updated++;
         } else {
+          f.missing = true;
           notFound++;
         }
       }
@@ -2149,8 +2182,30 @@ function renderFiles() {
   grid.style.display = '';
   grid.className = state.view === 'grid' ? 'sound-grid' : 'sound-list';
   grid.innerHTML = state.view === 'grid'
-    ? files.map(f => renderSoundCard(f, 'library')).join('')
-    : files.map(f => renderSoundRow(f, 'library')).join('');
+    ? files.filter(f => !f.missing).map(f => renderSoundCard(f, 'library')).join('')
+    : files.filter(f => !f.missing).map(f => renderSoundRow(f, 'library')).join('');
+
+  // Section fichiers introuvables
+  const missingFiles = state.files.filter(f => f.missing);
+  const missingSection = document.getElementById('missingSection');
+  const missingGrid = document.getElementById('missingGrid');
+  if (missingFiles.length > 0) {
+    missingSection.style.display = 'block';
+    missingGrid.className = state.view === 'grid' ? 'sound-grid' : 'sound-list';
+    missingGrid.innerHTML = missingFiles.map(f => {
+      const alias = f.alias || f.originalName.replace(/\.[^.]+$/, '');
+      return `<div class="sound-card missing" onclick="selectFile('${f.id}')">
+        <div class="sound-waveform">${soundSVG(22)}</div>
+        <div class="sound-name">${alias}</div>
+        <div class="sound-original">${f.originalName}</div>
+        <div class="sound-meta" style="color:#ff6450;font-size:10px">Introuvable sur pCloud</div>
+        <button class="btn" style="margin-top:6px;font-size:10px;padding:3px 8px;background:rgba(255,100,80,0.1);border-color:rgba(255,100,80,0.3);color:#ff6450"
+          onclick="event.stopPropagation();removeFile('${f.id}')">Supprimer</button>
+      </div>`;
+    }).join('');
+  } else {
+    missingSection.style.display = 'none';
+  }
 }
 
 // ── UNIFIED SOUND CARD / ROW ──────────────────────────────────
@@ -2394,6 +2449,13 @@ function addFileToFolder(fileId, folderId) {
   if (!f) return;
   if (!f.folders) f.folders = f.folder ? [f.folder] : [];
   if (!f.folders.includes(folderId)) { f.folders.push(folderId); save(); renderDetailFolders(f); renderSidebar(); renderFiles(); }
+}
+
+function removeFile(id) {
+  state.files = state.files.filter(f => f.id !== id);
+  if (state.selectedFile === id) { state.selectedFile = null; closeDetail(); }
+  save(); renderFiles(); renderSidebar();
+  showToast('Fichier supprimé de la bibliothèque');
 }
 
 function removeFileFromFolder(fileId, folderId) {
