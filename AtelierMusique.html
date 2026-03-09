@@ -1778,7 +1778,7 @@ async function loadFromPCloud() {
   setSyncStatus('syncing', 'Chargement…');
   try {
     const list = await pcloudApi('listfolder', { path: '/', nofiles: 0 });
-    console.log('listfolder response:', JSON.stringify(list));
+
 
     if (list.result === 1000 || list.result === 2094) {
       localStorage.removeItem('am_auth');
@@ -1802,9 +1802,26 @@ async function loadFromPCloud() {
 
     state.dbFileId = dbFile.fileid;
 
-    // pCloud CDN always returns 7010 from GitHub Pages — cannot read DB back from pCloud
-    // Strategy: localStorage is the source of truth for reads, pCloud is backup for writes
-    // This is safe because save() always writes to localStorage BEFORE uploading to pCloud
+    // Lire la DB depuis pCloud via le Worker (contourne le 7010)
+    try {
+      const proxyUrl = `${PROXY_URL}?auth=${encodeURIComponent(state.pcloud.token)}&server=${encodeURIComponent(state.pcloud.server)}&fileid=${dbFile.fileid}&_=${Date.now()}`;
+      const res = await fetch(proxyUrl);
+      if (res.ok) {
+        const encrypted = await res.text();
+        const d = await decryptData(encrypted, state.pcloud.userid);
+        state.files = d.files || [];
+        state.folders = d.folders || [];
+        // Mettre à jour le cache local
+        localStorage.setItem('am_data_cache', JSON.stringify({ files: state.files, folders: state.folders }));
+        setSyncStatus('synced', 'Synchronisé · ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
+        state.lastSaved = Date.now();
+        return;
+      }
+    } catch(e) {
+      console.warn('Lecture pCloud échouée, fallback localStorage:', e);
+    }
+
+    // Fallback localStorage si le Worker échoue
     const cached = localStorage.getItem('am_data_cache');
     if (cached) {
       const d = JSON.parse(cached);
