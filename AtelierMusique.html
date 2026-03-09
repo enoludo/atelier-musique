@@ -1986,16 +1986,18 @@ function deleteFolder(id) {
   save(); renderSidebar(); renderFiles();
 }
 
-function renameFolderInline(id, el) {
+function renameFolderInline(id) {
   const folder = state.folders.find(f => f.id === id);
   if (!folder) return;
+  const el = document.querySelector(`[data-folderid="${id}"]`);
+  if (!el) return;
   const input = document.createElement('input');
   input.value = folder.name;
   input.style.cssText = 'flex:1;background:var(--surface2);border:1px solid var(--accent);border-radius:4px;padding:1px 6px;color:var(--text);font-size:12px;font-family:Funnel Sans,sans-serif;outline:none;min-width:0;width:100%';
   el.replaceWith(input);
   input.focus();
   input.select();
-  const confirm = () => { const name = input.value.trim(); if (name) folder.name = name; save(); renderSidebar(); };
+  const confirm = () => { const name = input.value.trim(); if (name) { folder.name = name; save(); } renderSidebar(); };
   input.addEventListener('blur', confirm);
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') input.blur();
@@ -2038,9 +2040,9 @@ function renderSidebar() {
   document.getElementById('folderList').innerHTML = state.folders.map(f => {
     const count = state.files.filter(file => (file.folders||[file.folder]).includes(f.id)).length;
     const active = state.selectedFolder === f.id;
-    return `<div class="folder-item ${active?'active':''}" onclick="selectFolder('${f.id}')" style="${active?`color:${f.color}`:''}">
+    return `<div class="folder-item ${active?'active':''}" onclick="selectFolder('${f.id}')" ondblclick="event.stopPropagation()" style="${active?`color:${f.color}`:''}">
       <span class="folder-icon">${folderSVG(14, f.color)}</span>
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" ondblclick="event.stopPropagation();renameFolderInline('${f.id}',this)">${f.name}</span>
+      <span data-folderid="${f.id}" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text" ondblclick="event.stopPropagation();renameFolderInline('${f.id}')">${f.name}</span>
       <span class="folder-count">${count}</span>
       <button class="folder-delete-btn" onclick="event.stopPropagation();deleteFolder('${f.id}')" title="Supprimer">✕</button>
     </div>`;
