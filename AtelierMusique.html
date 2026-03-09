@@ -1573,6 +1573,8 @@ let state = {
 
 const DB_FILENAME = 'ateliermusique_db.json';
 const DB_PCLOUD_PATH = '/' + DB_FILENAME;
+const SHARED_FILENAME = 'ateliermusique_shared.json';
+const SHARED_PCLOUD_PATH = EXPLORER_ROOT + '/' + SHARED_FILENAME;
 const AUDIO_EXTENSIONS = ['wav','mp3','aif','aiff','flac','ogg','m4a','opus'];
 
 // Cloudflare Worker proxy pour le streaming audio (contourne erreur 7010 pCloud)
@@ -1719,6 +1721,7 @@ async function connectWithPassword() {
     await loadFromPCloud();
     render();
     autoSyncLibrary();
+    loadSharedFolders();
 
   } catch(e) {
     errEl.style.display = 'block';
@@ -1765,6 +1768,7 @@ async function load() {
     updateConnectionBadge(true);
     await loadFromPCloud();
     autoSyncLibrary();
+    loadSharedFolders();
   } else {
     // No token yet — load local cache for offline preview
     try {
@@ -1896,6 +1900,103 @@ async function saveToPCloud() {
     setSyncStatus('error', 'Échec — données en cache');
     console.error('Save error:', e);
   }
+}
+
+// ============================================================
+//  SHARED FOLDERS — lecture/écriture dans EXPLORER_ROOT
+// ============================================================
+async function loadSharedFolders() {
+  if (!state.pcloud.connected) return;
+  try {
+    const list = await pcloudApi('listfolder', { path: EXPLORER_ROOT, nofiles: 0 });
+    const sharedFile = (list.metadata?.contents || []).find(f => !f.isfolder && f.name === SHARED_FILENAME);
+    if (!sharedFile) return;
+    const proxyUrl = `${PROXY_URL}?auth=${encodeURIComponent(state.pcloud.token)}&server=${encodeURIComponent(state.pcloud.server)}&fileid=${sharedFile.fileid}&_=${Date.now()}`;
+    const res = await fetch(proxyUrl);
+    if (!res.ok) return;
+    const data = JSON.parse(await res.text());
+    const sharedFolders = data.folders || [];
+    // Merge : ajouter les dossiers partagés manquants, mettre à jour les existants
+    sharedFolders.forEach(sf => {
+      const existing = state.folders.find(f => f.id === sf.id);
+      if (existing) {
+        existing.name = sf.name;
+        existing.color = sf.color;
+        existing.shared = true;
+        existing.paths = sf.paths;
+        // Reconstruire les associations fichiers
+        syncSharedFolderFiles(existing);
+      } else {
+        const newFolder = { ...sf, shared: true };
+        state.folders.push(newFolder);
+        syncSharedFolderFiles(newFolder);
+      }
+    });
+    // Marquer les dossiers locaux qui ne sont plus dans le shared comme non-partagés
+    state.folders.forEach(f => {
+      if (f.shared && !sharedFolders.find(sf => sf.id === f.id)) {
+        f.shared = false;
+        delete f.paths;
+      }
+    });
+    save();
+    render();
+  } catch(e) {
+    console.warn('loadSharedFolders échoué:', e.message);
+  }
+}
+
+function syncSharedFolderFiles(folder) {
+  // Associer les fichiers locaux au dossier partagé via originalPath
+  state.files.forEach(file => {
+    const inFolder = (folder.paths || []).includes(file.originalPath);
+    const alreadyIn = (file.folders || []).includes(folder.id);
+    if (inFolder && !alreadyIn) {
+      if (!file.folders) file.folders = [];
+      file.folders.push(folder.id);
+    } else if (!inFolder && alreadyIn) {
+      file.folders = file.folders.filter(id => id !== folder.id);
+    }
+  });
+}
+
+async function saveSharedFolders() {
+  if (!state.pcloud.connected) return;
+  try {
+    const sharedFolders = state.folders
+      .filter(f => f.shared)
+      .map(f => ({
+        id: f.id,
+        name: f.name,
+        color: f.color,
+        paths: state.files.filter(file => (file.folders||[]).includes(f.id)).map(file => file.originalPath)
+      }));
+    const json = JSON.stringify({ folders: sharedFolders, savedAt: new Date().toISOString() });
+    const blob = new Blob([json], { type: 'application/json' });
+    const formData = new FormData();
+    formData.append('filename', SHARED_FILENAME);
+    formData.append('file', blob, SHARED_FILENAME);
+    const uploadUrl = `https://${state.pcloud.server}/uploadfile?auth=${encodeURIComponent(state.pcloud.token)}&path=${encodeURIComponent(EXPLORER_ROOT)}&filename=${encodeURIComponent(SHARED_FILENAME)}&nopartial=1`;
+    await fetch(uploadUrl, { method: 'POST', body: formData });
+  } catch(e) {
+    console.warn('saveSharedFolders échoué:', e.message);
+  }
+}
+
+async function toggleShareFolder(id) {
+  const folder = state.folders.find(f => f.id === id);
+  if (!folder) return;
+  if (folder.shared) {
+    if (!confirm(`Arrêter le partage du dossier "${folder.name}" ?`)) return;
+    folder.shared = false;
+    delete folder.paths;
+  } else {
+    folder.shared = true;
+  }
+  await saveSharedFolders();
+  save();
+  renderSidebar();
+  showToast(folder.shared ? `"${folder.name}" partagé` : `"${folder.name}" non partagé`);
 }
 
 function disconnect() {
@@ -2147,9 +2248,11 @@ function deleteFolder(id) {
     ? `Supprimer le dossier "${folder.name}" ? Il contient ${count} fichier(s) — ceux-ci ne seront pas supprimés.`
     : `Supprimer le dossier "${folder.name}" ?`;
   if (!confirm(msg)) return;
+  const wasShared = folder.shared;
   state.folders = state.folders.filter(f => f.id !== id);
   state.files.forEach(f => { f.folders = (f.folders || []).filter(fid => fid !== id); });
   if (state.selectedFolder === id) state.selectedFolder = 'all';
+  if (wasShared) saveSharedFolders();
   save(); renderSidebar(); renderFiles();
 }
 
@@ -2211,6 +2314,7 @@ function renderSidebar() {
       <span class="folder-icon">${folderSVG(14, f.color)}</span>
       <span data-folderid="${f.id}" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text" ondblclick="event.stopPropagation();renameFolderInline('${f.id}')">${f.name}</span>
       <span class="folder-count">${count}</span>
+      <button class="folder-share-btn ${f.shared?'active':''}" onclick="event.stopPropagation();toggleShareFolder('${f.id}')" title="${f.shared?'Partagé — cliquer pour arrêter':'Partager'}">⇅</button>
       <button class="folder-delete-btn" onclick="event.stopPropagation();deleteFolder('${f.id}')" title="Supprimer">✕</button>
     </div>`;
   }).join('');
@@ -2469,6 +2573,7 @@ function quickAddToFolder(fileId, folderId) {
     f.folders.push(folderId);
     save(); renderSidebar(); renderFiles();
     const vf = state.folders.find(v => v.id === folderId);
+    if (vf?.shared) saveSharedFolders();
     showToast(`Ajouté à "${vf?.name}" ✓`);
   }
 }
@@ -2543,7 +2648,12 @@ function addFileToFolder(fileId, folderId) {
   const f = state.files.find(f => f.id === fileId);
   if (!f) return;
   if (!f.folders) f.folders = f.folder ? [f.folder] : [];
-  if (!f.folders.includes(folderId)) { f.folders.push(folderId); save(); renderDetailFolders(f); renderSidebar(); renderFiles(); }
+  if (!f.folders.includes(folderId)) {
+    f.folders.push(folderId);
+    save(); renderDetailFolders(f); renderSidebar(); renderFiles();
+    const vf = state.folders.find(v => v.id === folderId);
+    if (vf?.shared) saveSharedFolders();
+  }
 }
 
 function removeFile(id) {
@@ -2559,6 +2669,8 @@ function removeFileFromFolder(fileId, folderId) {
   if (!f.folders) f.folders = [];
   f.folders = f.folders.filter(id => id !== folderId);
   save(); renderDetailFolders(f); renderSidebar(); renderFiles();
+  const vf = state.folders.find(v => v.id === folderId);
+  if (vf?.shared) saveSharedFolders();
 }
 
 let tagAcIndex = -1;
