@@ -1574,6 +1574,7 @@ let state = {
 
 const DB_FILENAME = 'ateliermusique_db.json';
 const DB_PCLOUD_PATH = '/' + DB_FILENAME;
+const AUDIO_EXTENSIONS = ['wav','mp3','aif','aiff','flac','ogg','m4a','opus'];
 
 // Cloudflare Worker proxy pour le streaming audio (contourne erreur 7010 pCloud)
 // Remplacez par l'URL de votre Worker après déploiement
@@ -1815,6 +1816,8 @@ async function loadFromPCloud() {
         localStorage.setItem('am_data_cache', JSON.stringify({ files: state.files, folders: state.folders }));
         setSyncStatus('synced', 'Synchronisé · ' + new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}));
         state.lastSaved = Date.now();
+        render();
+        autoSyncLibrary();
         return;
       }
     } catch(e) {
@@ -1832,6 +1835,8 @@ async function loadFromPCloud() {
       setSyncStatus('synced', 'Prêt — nouvelle bibliothèque');
     }
     state.lastSaved = Date.now();
+    render();
+    autoSyncLibrary();
     return;
 
   } catch(e) {
@@ -2064,6 +2069,35 @@ async function scanFolder(path, exts, recursive) {
     }
   }
   return files;
+}
+
+async function autoSyncLibrary() {
+  if (!state.pcloud.connected) return;
+  try {
+    const files = await scanFolder(EXPLORER_ROOT, AUDIO_EXTENSIONS, true);
+    let added = 0;
+    files.forEach(f => {
+      if (!state.files.find(sf => sf.originalPath === f.path)) {
+        state.files.push({
+          id: 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2),
+          originalName: f.name,
+          originalPath: f.path,
+          alias: f.name.replace(/\.[^.]+$/, ''),
+          notes: '', tags: [], folders: [],
+          pcloudId: f.id || null,
+          size: f.size || 0,
+          duration: null
+        });
+        added++;
+      }
+    });
+    if (added > 0) {
+      save(); render();
+      showToast(`${added} nouveau(x) fichier(s) ajouté(s) à la bibliothèque`);
+    }
+  } catch(e) {
+    console.warn('autoSyncLibrary échoué:', e.message);
+  }
 }
 
 function generateDemoFiles() {
