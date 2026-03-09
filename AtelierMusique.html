@@ -1217,6 +1217,7 @@
     </div>
     <span class="badge" id="connectionBadge">● Non connecté</span>
     <button class="btn" id="disconnectBtn" onclick="disconnect()" style="display:none">Déconnexion</button>
+    <button class="btn" id="resyncBtn" onclick="resyncIds()" style="display:none" title="Mettre à jour les IDs pCloud">↺ Resync</button>
     <button class="btn" id="connectBtn" onclick="showConnectModal()">⚡ Connecter pCloud</button>
     <button class="btn primary" onclick="showImportModal()">+ Importer</button>
   </div>
@@ -1848,6 +1849,52 @@ function disconnect() {
   showToast('Déconnecté');
 }
 
+async function resyncIds() {
+  if (!state.pcloud.connected) { showToast('Non connecté'); return; }
+  if (!state.files.length) { showToast('Bibliothèque vide'); return; }
+
+  setSyncStatus('syncing', 'Resync…');
+  let updated = 0;
+  let notFound = 0;
+
+  try {
+    // Construire un index path→fileid en scannant pCloud récursivement
+    const index = {};
+    async function scanForIndex(path) {
+      const data = await pcloudApi('listfolder', { path, nofiles: 0 });
+      if (data.result !== 0) return;
+      for (const item of (data.metadata?.contents || [])) {
+        if (item.isfolder) {
+          await scanForIndex(item.path);
+        } else {
+          index[item.path] = item.fileid;
+        }
+      }
+    }
+    await scanForIndex(EXPLORER_ROOT);
+
+    // Mettre à jour les pcloudId des fichiers importés
+    for (const f of state.files) {
+      if (f.originalPath && index[f.originalPath] !== undefined) {
+        if (f.pcloudId !== index[f.originalPath]) {
+          f.pcloudId = index[f.originalPath];
+          updated++;
+        }
+      } else if (f.originalPath) {
+        notFound++;
+      }
+    }
+
+    save();
+    const msg = `Resync terminé — ${updated} ID(s) mis à jour${notFound ? `, ${notFound} fichier(s) introuvable(s)` : ''}`;
+    setSyncStatus('saved', msg);
+    showToast(msg);
+  } catch(e) {
+    setSyncStatus('error', 'Erreur resync');
+    showToast(`Erreur resync : ${e.message}`);
+  }
+}
+
 function updateConnectionBadge(connected, label='') {
   const b = document.getElementById('connectionBadge');
   const disconnectBtn = document.getElementById('disconnectBtn');
@@ -1856,11 +1903,13 @@ function updateConnectionBadge(connected, label='') {
     b.textContent = `● Connecté${label ? ' · '+label : ''}`;
     b.classList.add('connected');
     disconnectBtn.style.display = 'flex';
+    document.getElementById('resyncBtn').style.display = 'flex';
     connectBtn.style.display = 'none';
   } else {
     b.textContent = '● Non connecté';
     b.classList.remove('connected');
     disconnectBtn.style.display = 'none';
+    document.getElementById('resyncBtn').style.display = 'none';
     connectBtn.style.display = 'flex';
   }
 }
