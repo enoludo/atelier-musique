@@ -2606,8 +2606,21 @@ async function playerPlay(f) {
       if (!PROXY_URL || PROXY_URL.includes('VOTRENOM')) {
         throw new Error('Proxy non configuré — voir pcloud-proxy-worker.js');
       }
-      const { url } = await resolveStreamUrl(f);
+      const { url, hasPath, pathParams } = await resolveStreamUrl(f);
       audio.src = url;
+
+      // Si le fileid échoue, on tente le fallback par path
+      if (hasPath) {
+        audio.onerror = async () => {
+          audio.onerror = null;
+          console.warn('fileid invalide, fallback sur path');
+          audio.src = pathParams;
+          audio.load();
+          try { await audio.play(); playerSetPlayIcon(true); }
+          catch(e) { showToast(`Fichier introuvable sur pCloud (${f.originalName})`); playerSetPlayIcon(false); }
+        };
+      }
+
       audio.load();
       await audio.play();
       playerSetPlayIcon(true);
@@ -2623,38 +2636,18 @@ async function playerPlay(f) {
 async function resolveStreamUrl(f) {
   const base = { auth: state.pcloud.token, server: state.pcloud.server };
 
-  const buildProxyUrl = (extra) => {
+  const buildUrl = (extra) => {
     const params = new URLSearchParams({ ...base, ...extra });
     return `${PROXY_URL}?${params.toString().replace(/\+/g, '%20')}`;
   };
 
-  // Appelle le Worker qui retourne { url: "https://cdn..." }
-  const fetchCdnUrl = async (extra) => {
-    const proxyUrl = buildProxyUrl(extra);
-    const res = await fetch(proxyUrl);
-    if (!res.ok) throw new Error(`Worker ${res.status}`);
-    const data = await res.json();
-    if (!data.url) throw new Error(`Worker sans URL CDN: ${JSON.stringify(data)}`);
-    return data.url;
-  };
-
   if (f.pcloudId) {
-    try {
-      const url = await fetchCdnUrl({ fileid: f.pcloudId });
-      return { url, hasPath: false, pathParams: null };
-    } catch(e) {
-      // fileid echoue — fallback sur path
-      if (f.originalPath) {
-        console.warn('fileid echoue, fallback path:', e.message);
-        const url = await fetchCdnUrl({ path: f.originalPath });
-        return { url, hasPath: false, pathParams: null };
-      }
-      throw e;
-    }
+    const url = buildUrl({ fileid: f.pcloudId });
+    const pathUrl = f.originalPath ? buildUrl({ path: f.originalPath }) : null;
+    return { url, hasPath: !!pathUrl, pathParams: pathUrl };
   }
   if (f.originalPath) {
-    const url = await fetchCdnUrl({ path: f.originalPath });
-    return { url, hasPath: false, pathParams: null };
+    return { url: buildUrl({ path: f.originalPath }), hasPath: false, pathParams: null };
   }
   throw new Error('Aucun identifiant disponible pour ce fichier');
 }
