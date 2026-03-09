@@ -3174,14 +3174,10 @@ function renderExplorerFileRow(f) {
 }
 
 function explorerSelectFile(importedId, path, name, size, fileid) {
-  if (importedId) {
-    state.selectedFile = importedId;
-    selectFile(importedId);
-  } else {
-    state.selectedFile = path;
-    showQuickImport(path, name, size, fileid);
-  }
-  if (appMode === 'explorer') renderExplorer(explorerFolders, explorerFiles);
+  // Surbrillance uniquement — pas d'ouverture de detail panel en mode explorateur
+  state.selectedFile = importedId || path;
+  // Re-render pour appliquer la classe selected
+  renderExplorer(explorerFolders, explorerFiles);
 }
 
 function showQuickImport(path, name, size, fileid) {
