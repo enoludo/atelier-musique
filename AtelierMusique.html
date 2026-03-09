@@ -1603,12 +1603,16 @@ async function encryptData(data, userid) {
   const combined = new Uint8Array(12 + ciphertext.byteLength);
   combined.set(iv, 0);
   combined.set(new Uint8Array(ciphertext), 12);
-  return btoa(String.fromCharCode(...combined));
+  let binary = '';
+  for (let i = 0; i < combined.length; i++) binary += String.fromCharCode(combined[i]);
+  return btoa(binary);
 }
 
 async function decryptData(b64, userid) {
   const key = await deriveKey(userid);
-  const combined = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  const raw = atob(b64);
+  const combined = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) combined[i] = raw.charCodeAt(i);
   const iv = combined.slice(0, 12);
   const ciphertext = combined.slice(12);
   const dec = new TextDecoder();
