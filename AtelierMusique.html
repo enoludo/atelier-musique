@@ -46,7 +46,7 @@
   }
 
   .logo {
-    font-family: 'Funnel Display', sans-serif;
+    font-family: 'Funnel Sans', sans-serif;
     font-weight: 700;
     font-size: 20px;
     letter-spacing: -0.5px;
@@ -77,6 +77,12 @@
     align-items: center;
     gap: 12px;
   }
+  .header-center {
+    position: absolute;
+    left: 240px; /* largeur sidebar */
+    padding-left: 24px; /* padding de la toolbar */
+  }
+  .btn:disabled { opacity: .35; cursor: default; pointer-events: none; }
 
   .badge {
     font-size: 11px;
@@ -423,7 +429,7 @@
   .sound-folder-card:hover { border-color: var(--text2); transform: translateY(-1px); }
   .sound-folder-icon { flex-shrink: 0; display: flex; align-items: center; }
   .sound-folder-name {
-    font-family: 'Funnel Display', sans-serif;
+    font-family: 'Funnel Sans', sans-serif;
     font-size: 13px; font-weight: 600;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     flex: 1;
@@ -466,7 +472,7 @@
 
   /* Texte card */
   .sound-name {
-    font-family: 'Funnel Display', sans-serif;
+    font-family: 'Funnel Sans', sans-serif;
     font-size: 13px; font-weight: 600;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     margin-bottom: 2px; flex-shrink: 0;
@@ -553,7 +559,7 @@
     color: var(--text3); flex-shrink: 0;
   }
   .sound-row-name {
-    font-family: 'Funnel Display', sans-serif;
+    font-family: 'Funnel Sans', sans-serif;
     font-size: 13px; font-weight: 600;
     flex: 1.5; min-width: 0;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -654,7 +660,7 @@
   }
 
   .detail-alias {
-    font-family: 'Funnel Display', sans-serif;
+    font-family: 'Funnel Sans', sans-serif;
     font-size: 18px;
     font-weight: 700;
     margin-bottom: 4px;
@@ -772,7 +778,7 @@
   .modal-overlay.show .modal { transform: translateY(0); }
 
   .modal-title {
-    font-family: 'Funnel Display', sans-serif;
+    font-family: 'Funnel Sans', sans-serif;
     font-size: 20px;
     font-weight: 700;
     margin-bottom: 6px;
@@ -895,7 +901,7 @@
     flex: 1; gap: 12px; color: var(--text3); padding: 40px; text-align: center;
   }
   .empty-icon { font-size: 48px; opacity: 0.3; }
-  .empty-title { font-family: 'Funnel Display', sans-serif; font-size: 20px; color: var(--text2); }
+  .empty-title { font-family: 'Funnel Sans', sans-serif; font-size: 20px; color: var(--text2); }
   .empty-sub { font-size: 13px; max-width: 300px; line-height: 1.6; }
 
   /* LOADING */
@@ -1033,7 +1039,7 @@
     overflow: hidden;
   }
   .player-name {
-    font-family: 'Funnel Display', sans-serif;
+    font-family: 'Funnel Sans', sans-serif;
     font-size: 13px; font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     color: var(--text);
@@ -1282,10 +1288,13 @@
 <body>
 
 <!-- HEADER -->
-<header>
+<header style="position:relative">
   <div class="logo">
     <div class="logo-dot"></div>
     AM
+  </div>
+  <div class="header-center">
+    <button class="btn" id="undoBtn" onclick="undo()" title="Annuler (⌘Z)" disabled>↩</button>
   </div>
   <div class="header-right">
     <div class="sync-indicator" id="syncIndicator" style="display:none">
@@ -1295,7 +1304,6 @@
     <span class="badge" id="connectionBadge">● Non connecté</span>
     <button class="btn" id="disconnectBtn" onclick="disconnect()" style="display:none">Déconnexion</button>
     <button class="btn" id="connectBtn" onclick="showConnectModal()">⚡ Connecter pCloud</button>
-    <button class="btn" id="undoBtn" onclick="undo()" title="Annuler (⌘Z)" disabled style="opacity:.4">↩ Annuler</button>
     <div style="position:relative;display:inline-block">
       <button class="btn" id="moreMenuBtn" onclick="toggleMoreMenu()" title="Plus d'options">⋮</button>
       <div id="moreMenu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface2);border:1px solid var(--border);border-radius:8px;min-width:160px;z-index:100;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.4)">
@@ -3096,7 +3104,8 @@ function undo() {
 
 function updateUndoBtn() {
   const btn = document.getElementById('undoBtn');
-  if (btn) btn.disabled = state.historyIndex <= 0;
+  if (!btn) return;
+  btn.disabled = state.historyIndex <= 0;
 }
 
 function clearSearch() {
