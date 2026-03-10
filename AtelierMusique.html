@@ -1406,7 +1406,14 @@
     </div>
     <div class="detail-footer">
       <button class="btn accent" id="detailFooterPlay" onclick="playSelectedFile()">▶ Écouter</button>
-      <button class="btn" id="detailFooterDownload" onclick="downloadSelectedFile()" title="Télécharger">↓</button>
+      <button class="btn" id="detailFooterDownload" onclick="downloadSelectedFile()" title="Télécharger" style="gap:7px">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="7" cy="7" r="6.5" stroke="currentColor"/>
+          <path d="M7 4v4M5 6.5l2 2 2-2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4.5 10h5" stroke="currentColor" stroke-linecap="round"/>
+        </svg>
+        Télécharger
+      </button>
       <div id="detailFooterImport" style="display:none;flex-direction:column;flex:1;gap:6px">
         <button class="btn primary" style="justify-content:center" onclick="importFromDetail()">+ Ajouter à la bibliothèque</button>
         <button class="btn" style="justify-content:center" onclick="playExplorerFile()">▶ Écouter</button>
