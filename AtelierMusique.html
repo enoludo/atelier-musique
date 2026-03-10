@@ -1742,6 +1742,7 @@ async function connectWithPassword() {
 
     await loadFromPCloud();
     render();
+    await detectExplorerRoot();
     await autoSyncLibrary();
     await loadSharedFolders();
     saveSharedFolders();
@@ -1790,6 +1791,7 @@ async function load() {
     state.pcloud.connected = true;
     updateConnectionBadge(true);
     await loadFromPCloud();
+    await detectExplorerRoot();
     await autoSyncLibrary();
     await loadSharedFolders();
     saveSharedFolders();
@@ -3213,7 +3215,28 @@ let appMode = 'explorer';
 let explorerPath = '/02-MUSIQUE/01-ATELIER MUSIQUE';
 let explorerFolders = [];
 let explorerFiles = [];
-const EXPLORER_ROOT = '/02-MUSIQUE/01-ATELIER MUSIQUE';
+let EXPLORER_ROOT = '/02-MUSIQUE/01-ATELIER MUSIQUE';
+const EXPLORER_FOLDER_NAME = '01-ATELIER MUSIQUE';
+
+async function detectExplorerRoot() {
+  const candidates = [
+    '/02-MUSIQUE/01-ATELIER MUSIQUE',
+    '/Shared/01-ATELIER MUSIQUE',
+    '/01-ATELIER MUSIQUE',
+  ];
+  for (const path of candidates) {
+    try {
+      const data = await pcloudApi('listfolder', { path, nofiles: 0 });
+      if (data.result === 0) { EXPLORER_ROOT = path; return; }
+    } catch(e) {}
+  }
+  // Scanner /Shared/
+  try {
+    const shared = await pcloudApi('listfolder', { path: '/Shared', nofiles: 0 });
+    const found = (shared.metadata?.contents || []).find(f => f.isfolder && f.name === EXPLORER_FOLDER_NAME);
+    if (found) { EXPLORER_ROOT = '/Shared/' + EXPLORER_FOLDER_NAME; return; }
+  } catch(e) {}
+}
 let explorerCache = {}; // path → contents
 
 function setMode(mode) {
