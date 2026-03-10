@@ -146,7 +146,33 @@
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    overflow: hidden;
   }
+  .sidebar-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+  }
+  .sidebar-scroll::-webkit-scrollbar { width: 4px; }
+  .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .sidebar-tags-fixed {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+  }
+  .tag-cloud-wrap {
+    overflow: hidden;
+    transition: max-height .25s ease;
+    max-height: 600px;
+  }
+  .tag-cloud-wrap.collapsed { max-height: 0; }
+  .tag-collapse-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text3); font-size: 11px; padding: 0 2px;
+    line-height: 1; transition: color .15s;
+  }
+  .tag-collapse-btn:hover { color: var(--text); }
 
   .sidebar-section {
     padding: 16px;
@@ -1286,33 +1312,41 @@
       </div>
     </div>
 
-    <!-- VIRTUAL FOLDERS (library mode) -->
-    <div class="sidebar-section" id="virtualFoldersSection" style="display:none">
-      <div class="sidebar-title">Dossiers virtuels <span id="statFolders" style="font-weight:400;color:var(--text3);font-size:10px"></span></div>
-      <div class="folder-item" onclick="selectFolder('all')" id="folder-all">
-        <span class="folder-icon" id="icon-all"></span> Tous les sons
-        <span class="folder-count" id="count-library">0</span>
+    <!-- VIRTUAL FOLDERS (library mode) — scrollable -->
+    <div class="sidebar-scroll">
+      <div class="sidebar-section" id="virtualFoldersSection" style="display:none">
+        <div class="sidebar-title">Dossiers virtuels <span id="statFolders" style="font-weight:400;color:var(--text3);font-size:10px"></span></div>
+        <div class="folder-item" onclick="selectFolder('all')" id="folder-all">
+          <span class="folder-icon" id="icon-all"></span> Tous les sons
+          <span class="folder-count" id="count-library">0</span>
+        </div>
+        <div id="folderList"></div>
+        <button class="btn-add-folder" onclick="showAddFolderModal()">
+          + Nouveau dossier
+        </button>
       </div>
-      <div id="folderList"></div>
-      <button class="btn-add-folder" onclick="showAddFolderModal()">
-        + Nouveau dossier
-      </button>
     </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-title" style="display:flex;align-items:center;justify-content:space-between">
-        <span>Tags <span id="statTagsStyle" style="font-weight:400;color:var(--text3);font-size:10px"></span></span>
-        <button id="tagEditBtn" onclick="toggleTagEditMode()" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:0 2px;transition:color .15s" title="Organiser les tags">✎</button>
-      </div>
-      <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:'DM Mono',monospace">Style / Ambiance</div>
-      <div class="tag-cloud" id="tagCloudStyle">
-        <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
-      </div>
-    </div>
-    <div class="sidebar-section">
-      <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:'DM Mono',monospace">Instrument</div>
-      <div class="tag-cloud" id="tagCloudInst" style="min-height:24px">
-        <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
+    <!-- TAGS — fixes en bas -->
+    <div class="sidebar-tags-fixed">
+      <div class="sidebar-section" style="padding-bottom:10px">
+        <div class="sidebar-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <span>Tags <span id="statTagsStyle" style="font-weight:400;color:var(--text3);font-size:10px"></span></span>
+          <div style="display:flex;gap:5px;align-items:center">
+            <button id="tagEditBtn" onclick="toggleTagEditMode()" class="tag-collapse-btn" title="Organiser les tags">✎</button>
+            <button id="tagsCollapseBtn" onclick="toggleTagsCollapse()" class="tag-collapse-btn" title="Replier/déplier">▾</button>
+          </div>
+        </div>
+        <div class="tag-cloud-wrap" id="tagsCloudWrap">
+          <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:'DM Mono',monospace">Style / Ambiance</div>
+          <div class="tag-cloud" id="tagCloudStyle" style="margin-bottom:8px">
+            <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:'DM Mono',monospace">Instrument</div>
+          <div class="tag-cloud" id="tagCloudInst" style="min-height:24px">
+            <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1618,7 +1652,7 @@
 let state = {
   files: [], folders: [],
   selectedFile: null, selectedFolder: 'all',
-  selectedTagsStyle: [], selectedTagsInst: [], sharedSaveTimer: null, tagEditMode: false, view: 'grid',
+  selectedTagsStyle: [], selectedTagsInst: [], sharedSaveTimer: null, tagEditMode: false, tagsCollapsed: false, view: 'grid',
   pcloud: { token: null, server: 'eapi.pcloud.com', connected: false },
   folderColor: '#e8ff47', search: '',
   pendingClientId: null, pendingServer: null,
@@ -2592,8 +2626,17 @@ function renderBreadcrumb() {
       ? `<span onclick="selectFolder('all')">Tous les sons</span><span style="opacity:.4"> / </span><span class="current" style="color:${folder.color}">${folder.name}</span>`
       : '';
   }
-  const selTags = [...(state.selectedTagsStyle||[]), ...(state.selectedTagsInst||[])];
-  if (selTags.length > 0) bc.innerHTML += `<span style="opacity:.4"> · </span><span style="color:var(--accent)">${selTags.join(', ')}</span>`;
+  const selStyle = state.selectedTagsStyle || [];
+  const selInst  = state.selectedTagsInst  || [];
+  if (selStyle.length + selInst.length > 0) {
+    bc.innerHTML += `<span style="opacity:.4"> · </span>`;
+    selStyle.forEach(t => {
+      bc.innerHTML += `<span onclick="toggleTag('${t}','style')" title="Enlever ce filtre" style="cursor:pointer;color:var(--accent);background:rgba(255,255,255,.12);border-radius:4px;padding:1px 7px;font-size:11px;margin-right:3px;white-space:nowrap">${t} ✕</span>`;
+    });
+    selInst.forEach(t => {
+      bc.innerHTML += `<span onclick="toggleTag('${t}','inst')" title="Enlever ce filtre" style="cursor:pointer;color:rgba(255,180,50,.9);background:rgba(255,180,50,.15);border-radius:4px;padding:1px 7px;font-size:11px;margin-right:3px;white-space:nowrap">${t} ✕</span>`;
+    });
+  }
 }
 
 // ============================================================
@@ -2930,6 +2973,14 @@ function removeTagFromFile(fileId, tag, cat) {
     f.tagsStyle = (f.tagsStyle || []).filter(t => t !== tag);
   }
   propagateToTwins(f); touchFile(f); save(); renderDetailTags(f); renderSidebar(); renderFiles();
+}
+
+function toggleTagsCollapse() {
+  state.tagsCollapsed = !state.tagsCollapsed;
+  const wrap = document.getElementById('tagsCloudWrap');
+  const btn  = document.getElementById('tagsCollapseBtn');
+  if (wrap) wrap.classList.toggle('collapsed', state.tagsCollapsed);
+  if (btn)  btn.textContent = state.tagsCollapsed ? '▸' : '▾';
 }
 
 function toggleTagEditMode() {
