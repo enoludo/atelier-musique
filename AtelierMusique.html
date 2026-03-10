@@ -1406,6 +1406,7 @@
     </div>
     <div class="detail-footer">
       <button class="btn accent" id="detailFooterPlay" onclick="playSelectedFile()">▶ Écouter</button>
+      <button class="btn" id="detailFooterDownload" onclick="downloadSelectedFile()" title="Télécharger">↓</button>
       <div id="detailFooterImport" style="display:none;flex-direction:column;flex:1;gap:6px">
         <button class="btn primary" style="justify-content:center" onclick="importFromDetail()">+ Ajouter à la bibliothèque</button>
         <button class="btn" style="justify-content:center" onclick="playExplorerFile()">▶ Écouter</button>
@@ -2928,6 +2929,28 @@ async function playerPlay(f) {
     playerSetPlayIcon(false);
   } finally {
     document.getElementById('playerSpinner')?.remove();
+  }
+}
+
+async function downloadSelectedFile() {
+  if (!state.selectedFile) return;
+  const f = state.files.find(f => f.id === state.selectedFile);
+  if (!f) return;
+  try {
+    // Obtenir un lien direct pCloud (pas via le Worker — download direct)
+    const params = new URLSearchParams({ auth: state.pcloud.token, path: f.originalPath });
+    const data = await pcloudApi('getfilelink', { path: f.originalPath });
+    if (data.result !== 0) throw new Error(data.error);
+    const url = 'https://' + data.hosts[0] + data.path;
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = f.originalName;
+    a.target = '_blank';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch(e) {
+    showToast('Erreur téléchargement : ' + e.message);
   }
 }
 
