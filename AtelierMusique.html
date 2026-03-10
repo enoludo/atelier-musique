@@ -469,6 +469,10 @@
     display: flex; flex-wrap: nowrap; gap: 3px;
     overflow: hidden; flex-shrink: 0; margin-bottom: 4px;
   }
+  .sound-tag-inst { background: rgba(255,180,50,0.12); color: rgba(255,180,50,0.85); border-color: rgba(255,180,50,0.2); }
+  .detail-tag[draggable] { cursor: grab; }
+  .detail-tag[draggable]:active { cursor: grabbing; opacity: 0.5; }
+  .detail-tags.drag-over { background: rgba(255,255,255,0.05); border-radius: 6px; outline: 1px dashed rgba(255,255,255,0.2); }
   .sound-tag {
     font-size: 10px; padding: 1px 6px; border-radius: 10px;
     background: var(--surface3); color: var(--text3);
@@ -1290,8 +1294,14 @@
     </div>
 
     <div class="sidebar-section">
-      <div class="sidebar-title">Tags <span id="statTags" style="font-weight:400;color:var(--text3);font-size:10px"></span></div>
-      <div class="tag-cloud" id="tagCloud">
+      <div class="sidebar-title">Style / Ambiance <span id="statTagsStyle" style="font-weight:400;color:var(--text3);font-size:10px"></span></div>
+      <div class="tag-cloud" id="tagCloudStyle">
+        <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Instrument <span id="statTagsInst" style="font-weight:400;color:var(--text3);font-size:10px"></span></div>
+      <div class="tag-cloud" id="tagCloudInst">
         <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
       </div>
     </div>
@@ -1363,15 +1373,26 @@
         <textarea class="detail-input" id="editNotes" rows="4" placeholder="Description, contexte, BPM..." oninput="updateSelectedFile()"></textarea>
       </div>
       <div class="detail-field">
-        <div class="detail-field-label">Tags</div>
-        <div class="detail-tags" id="detailTagsList"></div>
+        <div class="detail-field-label">Style / Ambiance</div>
+        <div class="detail-tags" id="detailTagsStyleList"></div>
         <div class="tag-input-row">
-          <input type="text" class="detail-input" id="tagInput" placeholder="Ajouter un tag..."
-            onkeydown="handleTagInput(event)"
-            oninput="renderTagAutocomplete(this.value)"
+          <input type="text" class="detail-input" id="tagStyleInput" placeholder="Ajouter un tag style..."
+            onkeydown="handleTagInput(event,'style')"
+            oninput="renderTagAutocomplete(this.value,'style')"
             onblur="setTimeout(closeTagAutocomplete, 150)">
-          <button class="btn" onclick="addTagToSelected()">+</button>
+          <button class="btn" onclick="addTagToSelected('style')">+</button>
           <div class="tag-autocomplete" id="tagAutocomplete" style="display:none"></div>
+        </div>
+      </div>
+      <div class="detail-field">
+        <div class="detail-field-label">Instrument</div>
+        <div class="detail-tags" id="detailTagsInstList"></div>
+        <div class="tag-input-row">
+          <input type="text" class="detail-input" id="tagInstInput" placeholder="Ajouter un tag instrument..."
+            onkeydown="handleTagInput(event,'inst')"
+            oninput="renderTagAutocomplete(this.value,'inst')"
+            onblur="setTimeout(closeTagAutocomplete, 150)">
+          <button class="btn" onclick="addTagToSelected('inst')">+</button>
         </div>
       </div>
       <div class="detail-field">
@@ -1586,7 +1607,7 @@
 let state = {
   files: [], folders: [],
   selectedFile: null, selectedFolder: 'all',
-  selectedTags: [], view: 'grid',
+  selectedTagsStyle: [], selectedTagsInst: [], view: 'grid',
   pcloud: { token: null, server: 'eapi.pcloud.com', connected: false },
   folderColor: '#e8ff47', search: '',
   pendingClientId: null, pendingServer: null,
@@ -1945,7 +1966,8 @@ async function loadSharedFolders() {
     (data.files || []).forEach(sf => {
       const local = state.files.find(f => f.originalPath === sf.path);
       if (!local) return;
-      local.tags = [...new Set([...(local.tags || []), ...(sf.tags || [])])];
+      local.tagsStyle = [...new Set([...(local.tagsStyle || []), ...(sf.tagsStyle || [])])];
+      local.tagsInst  = [...new Set([...(local.tagsInst || local.tags || []), ...(sf.tagsInst || [])])];
       const localDate = local.updatedAt ? new Date(local.updatedAt) : new Date(0);
       const sharedDate = sf.updatedAt ? new Date(sf.updatedAt) : new Date(0);
       if (sharedDate > localDate) {
@@ -1971,7 +1993,8 @@ async function saveSharedFolders() {
         path: f.originalPath,
         alias: f.alias || '',
         notes: f.notes || '',
-        tags: f.tags || [],
+        tagsStyle: f.tagsStyle || [],
+        tagsInst: f.tagsInst || f.tags || [],
         updatedAt: f.updatedAt || now
       }));
       const json = JSON.stringify({ files, savedAt: now });
@@ -2305,7 +2328,7 @@ function renameFolderInline(id) {
 
 function selectFolder(id) {
   state.selectedFolder = id;
-  state.selectedTags = [];
+  state.selectedTagsStyle = []; state.selectedTagsInst = [];
   renderSidebar(); renderFiles(); renderBreadcrumb();
 }
 
@@ -2370,12 +2393,13 @@ function renderSidebar() {
 function renderFiles() {
   let files = state.files;
   if (state.selectedFolder !== 'all') files = files.filter(f => (f.folders||[f.folder]).includes(state.selectedFolder));
-  if (state.selectedTags.length > 0) files = files.filter(f => state.selectedTags.every(t => f.tags.includes(t)));
+  if (state.selectedTagsStyle.length > 0) files = files.filter(f => state.selectedTagsStyle.every(t => (f.tagsStyle||[]).includes(t)));
+  if (state.selectedTagsInst.length > 0) files = files.filter(f => state.selectedTagsInst.every(t => (f.tagsInst||f.tags||[]).includes(t)));
   if (state.search) {
     const s = state.search.toLowerCase();
     files = files.filter(f =>
       f.alias.toLowerCase().includes(s) || f.originalName.toLowerCase().includes(s) ||
-      f.tags.some(t => t.toLowerCase().includes(s)) || (f.notes||'').toLowerCase().includes(s)
+      (f.tagsStyle||[]).some(t => t.toLowerCase().includes(s)) || (f.tagsInst||f.tags||[]).some(t => t.toLowerCase().includes(s)) || (f.notes||'').toLowerCase().includes(s)
     );
   }
 
@@ -2438,9 +2462,12 @@ function renderSoundCard(f, mode) {
     return vf ? `<span class="sound-chip"><span class="sound-chip-dot" style="background:${vf.color}"></span>${vf.name}</span>` : '';
   }).join('') + (fileFolders.length > 2 ? `<span class="sound-chip">+${fileFolders.length-2}</span>` : '');
 
-  const tags = f.tags || [];
-  const tagsHtml = tags.slice(0, 2).map(t => `<span class="sound-tag">${t}</span>`).join('') +
-    (tags.length > 2 ? `<span class="sound-tag">+${tags.length-2}</span>` : '');
+  const tagsStyle = f.tagsStyle || [];
+  const tagsInst  = f.tagsInst || f.tags || [];
+  const tagsStyleHtml = tagsStyle.slice(0,2).map(t => `<span class="sound-tag">${t}</span>`).join('') +
+    (tagsStyle.length > 2 ? `<span class="sound-tag">+${tagsStyle.length-2}</span>` : '');
+  const tagsInstHtml = tagsInst.slice(0,2).map(t => `<span class="sound-tag sound-tag-inst">${t}</span>`).join('') +
+    (tagsInst.length > 2 ? `<span class="sound-tag sound-tag-inst">+${tagsInst.length-2}</span>` : '');
 
   const available = state.folders.filter(vf => !fileFolders.includes(vf.id));
   const folderBtn = (id && available.length > 0)
@@ -2460,7 +2487,8 @@ function renderSoundCard(f, mode) {
     <div class="sound-name">${alias}</div>
     <div class="sound-original">${original}</div>
     ${folderChips ? `<div class="sound-chips">${folderChips}</div>` : ''}
-    ${tagsHtml ? `<div class="sound-tags">${tagsHtml}</div>` : ''}
+    ${tagsStyleHtml ? `<div class="sound-tags">${tagsStyleHtml}</div>` : ''}
+    ${tagsInstHtml ? `<div class="sound-tags">${tagsInstHtml}</div>` : ''}
     <div class="sound-meta">
       <span>${formatSize(size)}</span>
       ${f.duration ? `<span style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${formatTime(f.duration)}</span>` : ''}
@@ -2484,6 +2512,8 @@ function renderSoundRow(f, mode) {
     const vf = state.folders.find(v => v.id === fid);
     return vf ? `<span class="sound-chip"><span class="sound-chip-dot" style="background:${vf.color}"></span>${vf.name}</span>` : '';
   }).join('');
+  const tagsStyleRow = (f.tagsStyle || []).slice(0,1).map(t => `<span class="sound-tag">${t}</span>`).join('');
+  const tagsInstRow  = (f.tagsInst || f.tags || []).slice(0,1).map(t => `<span class="sound-tag sound-tag-inst">${t}</span>`).join('');
 
   const onclick = mode === 'library'
     ? `selectFile('${id}')`
@@ -2500,6 +2530,7 @@ function renderSoundRow(f, mode) {
     <span class="sound-row-name">${alias}</span>
     <span class="sound-row-original">${original}</span>
     ${folderChips ? `<span class="sound-row-chips">${folderChips}</span>` : ''}
+    ${tagsStyleRow || tagsInstRow ? `<span class="sound-row-chips">${tagsStyleRow}${tagsInstRow}</span>` : ''}
     ${duration}
     <span class="sound-row-size">${formatSize(size)}</span>
   </div>`;
@@ -2516,7 +2547,8 @@ function renderBreadcrumb() {
       ? `<span onclick="selectFolder('all')">Tous les sons</span><span style="opacity:.4"> / </span><span class="current" style="color:${folder.color}">${folder.name}</span>`
       : '';
   }
-  if (state.selectedTags.length > 0) bc.innerHTML += `<span style="opacity:.4"> · </span><span style="color:var(--accent)">${state.selectedTags.join(', ')}</span>`;
+  const selTags = [...state.selectedTagsStyle, ...state.selectedTagsInst];
+  if (selTags.length > 0) bc.innerHTML += `<span style="opacity:.4"> · </span><span style="color:var(--accent)">${selTags.join(', ')}</span>`;
 }
 
 // ============================================================
@@ -2543,8 +2575,53 @@ function selectFile(id) {
 }
 
 function renderDetailTags(f) {
-  document.getElementById('detailTagsList').innerHTML = (f.tags||[])
-    .map(t => `<span class="detail-tag">${t}<button class="tag-remove" onclick="removeTagFromFile('${f.id}','${t}')">✕</button></span>`).join('');
+  const tagsStyle = f.tagsStyle || [];
+  const tagsInst  = f.tagsInst || f.tags || [];
+
+  const makeTag = (t, cat, fid) =>
+    `<span class="detail-tag" draggable="true"
+      ondragstart="tagDragStart(event,'${fid}','${t}','${cat}')"
+      >${t}<button class="tag-remove" onclick="removeTagFromFile('${fid}','${t}','${cat}')">✕</button></span>`;
+
+  document.getElementById('detailTagsStyleList').innerHTML = tagsStyle.map(t => makeTag(t,'style',f.id)).join('');
+  document.getElementById('detailTagsInstList').innerHTML  = tagsInst.map(t => makeTag(t,'inst',f.id)).join('');
+
+  // Zones de drop
+  ['detailTagsStyleList','detailTagsInstList'].forEach(id => {
+    const el = document.getElementById(id);
+    const targetCat = id === 'detailTagsStyleList' ? 'style' : 'inst';
+    el.ondragover  = e => { e.preventDefault(); el.classList.add('drag-over'); };
+    el.ondragleave = () => el.classList.remove('drag-over');
+    el.ondrop      = e => { e.preventDefault(); el.classList.remove('drag-over'); tagDrop(e, targetCat); };
+  });
+}
+
+function tagDragStart(e, fileId, tag, fromCat) {
+  e.dataTransfer.setData('text/plain', JSON.stringify({ fileId, tag, fromCat }));
+}
+
+function tagDrop(e, toCat) {
+  try {
+    const { fileId, tag, fromCat } = JSON.parse(e.dataTransfer.getData('text/plain'));
+    if (fromCat === toCat) return;
+    const f = state.files.find(f => f.id === fileId);
+    if (!f) return;
+    // Retirer de la source
+    if (fromCat === 'inst') {
+      f.tagsInst = (f.tagsInst || f.tags || []).filter(t => t !== tag);
+    } else {
+      f.tagsStyle = (f.tagsStyle || []).filter(t => t !== tag);
+    }
+    // Ajouter dans la cible
+    if (toCat === 'inst') {
+      if (!f.tagsInst) f.tagsInst = [];
+      if (!f.tagsInst.includes(tag)) f.tagsInst.push(tag);
+    } else {
+      if (!f.tagsStyle) f.tagsStyle = [];
+      if (!f.tagsStyle.includes(tag)) f.tagsStyle.push(tag);
+    }
+    propagateToTwins(f); touchFile(f); save(); renderDetailTags(f); renderSidebar(); renderFiles();
+  } catch(e) { console.warn('tagDrop error', e); }
 }
 
 function updateSelectedFile() {
@@ -2577,9 +2654,10 @@ function propagateToTwins(source) {
   if (!source.hash) return;
   state.files.forEach(f => {
     if (f.id === source.id || f.hash !== source.hash) return;
-    f.alias  = source.alias;
-    f.notes  = source.notes;
-    f.tags   = [...source.tags];
+    f.alias     = source.alias;
+    f.notes     = source.notes;
+    f.tagsStyle = [...(source.tagsStyle || [])];
+    f.tagsInst  = [...(source.tagsInst || source.tags || [])];
   });
 }
 
@@ -2721,19 +2799,23 @@ function removeFileFromFolder(fileId, folderId) {
 
 let tagAcIndex = -1;
 
-function getAllTags() {
+function getAllTags(cat) {
   const set = new Set();
-  state.files.forEach(f => (f.tags || []).forEach(t => set.add(t)));
+  if (cat === 'inst') {
+    state.files.forEach(f => (f.tagsInst || []).forEach(t => set.add(t)));
+  } else {
+    state.files.forEach(f => (f.tagsStyle || []).forEach(t => set.add(t)));
+  }
   return [...set].sort();
 }
 
-function renderTagAutocomplete(val) {
+function renderTagAutocomplete(val, cat) {
   const ac = document.getElementById('tagAutocomplete');
   tagAcIndex = -1;
   const query = val.trim().toLowerCase().replace(/\s+/g,'_');
   if (!query) { ac.style.display = 'none'; return; }
   const f = state.selectedFile ? state.files.find(f => f.id === state.selectedFile) : null;
-  const existing = f ? (f.tags || []) : [];
+  const existing = f ? (cat === 'inst' ? (f.tagsInst||[]) : (f.tagsStyle||f.tags||[])) : [];
   const matches = getAllTags().filter(t => t.startsWith(query) && !existing.includes(t));
   if (!matches.length) { ac.style.display = 'none'; return; }
   ac.innerHTML = matches.slice(0, 8).map((t, i) =>
@@ -2748,14 +2830,15 @@ function closeTagAutocomplete() {
   tagAcIndex = -1;
 }
 
-function selectTagSuggestion(tag) {
-  const input = document.getElementById('tagInput');
-  input.value = tag;
+function selectTagSuggestion(tag, cat) {
+  const inputId = cat === 'inst' ? 'tagInstInput' : 'tagStyleInput';
+  const input = document.getElementById(inputId);
+  if (input) input.value = tag;
   closeTagAutocomplete();
-  addTagToSelected();
+  addTagToSelected(cat);
 }
 
-function handleTagInput(e) {
+function handleTagInput(e, cat) {
   const ac = document.getElementById('tagAutocomplete');
   const items = ac ? ac.querySelectorAll('.tag-autocomplete-item') : [];
   if (e.key === 'ArrowDown') {
@@ -2771,21 +2854,29 @@ function handleTagInput(e) {
   if (e.key === 'Escape') { closeTagAutocomplete(); return; }
   if (e.key === 'Enter') {
     if (tagAcIndex >= 0 && items[tagAcIndex]) {
-      selectTagSuggestion(items[tagAcIndex].textContent);
+      selectTagSuggestion(items[tagAcIndex].textContent, cat);
     } else {
-      addTagToSelected();
+      addTagToSelected(cat);
       closeTagAutocomplete();
     }
   }
 }
 
-function addTagToSelected() {
+function addTagToSelected(cat) {
   if (!state.selectedFile) return;
-  const input = document.getElementById('tagInput');
+  const inputId = cat === 'inst' ? 'tagInstInput' : 'tagStyleInput';
+  const input = document.getElementById(inputId);
   const tag = input.value.trim().toLowerCase().replace(/\s+/g,'_');
   if (!tag) return;
   const f = state.files.find(f => f.id === state.selectedFile);
-  if (f && !f.tags.includes(tag)) { f.tags.push(tag); propagateToTwins(f); touchFile(f); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
+  if (!f) return;
+  if (cat === 'inst') {
+    if (!f.tagsInst) f.tagsInst = [];
+    if (!f.tagsInst.includes(tag)) { f.tagsInst.push(tag); propagateToTwins(f); touchFile(f); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
+  } else {
+    if (!f.tagsStyle) f.tagsStyle = [];
+    if (!f.tagsStyle.includes(tag)) { f.tagsStyle.push(tag); propagateToTwins(f); touchFile(f); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
+  }
   input.value = '';
   closeTagAutocomplete();
 }
@@ -2795,9 +2886,10 @@ function removeTagFromFile(fileId, tag) {
   if (f) { f.tags = f.tags.filter(t => t !== tag); propagateToTwins(f); touchFile(f); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
 }
 
-function toggleTag(tag) {
-  const idx = state.selectedTags.indexOf(tag);
-  if (idx >= 0) state.selectedTags.splice(idx,1); else state.selectedTags.push(tag);
+function toggleTag(tag, cat) {
+  const arr = cat === 'inst' ? state.selectedTagsInst : state.selectedTagsStyle;
+  const idx = arr.indexOf(tag);
+  if (idx >= 0) arr.splice(idx,1); else arr.push(tag);
   renderSidebar(); renderFiles(); renderBreadcrumb();
 }
 
@@ -3406,7 +3498,8 @@ function showQuickImport(path, name, size, fileid) {
   document.getElementById('detailPath').textContent = path;
   document.getElementById('editAlias').value = name.replace(/\.[^.]+$/, '');
   document.getElementById('editNotes').value = '';
-  document.getElementById('detailTagsList').innerHTML = '';
+  document.getElementById('detailTagsStyleList').innerHTML = '';
+  document.getElementById('detailTagsInstList').innerHTML = '';
   document.getElementById('detailFoldersList').innerHTML = '';
   document.getElementById('detailFoldersAdd').innerHTML = '';
 
