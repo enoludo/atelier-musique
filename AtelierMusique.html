@@ -2937,15 +2937,18 @@ async function downloadSelectedFile() {
   const f = state.files.find(f => f.id === state.selectedFile);
   if (!f) return;
   try {
-    // Obtenir un lien direct pCloud (pas via le Worker — download direct)
-    const params = new URLSearchParams({ auth: state.pcloud.token, path: f.originalPath });
-    const data = await pcloudApi('getfilelink', { path: f.originalPath });
-    if (data.result !== 0) throw new Error(data.error);
-    const url = 'https://' + data.hosts[0] + data.path;
+    const params = new URLSearchParams({
+      auth: state.pcloud.token,
+      server: state.pcloud.server,
+      path: f.originalPath,
+      download: '1',
+      filename: f.originalName,
+      _: Date.now()
+    });
+    const url = `${PROXY_URL}?${params.toString().replace(/\+/g, '%20')}`;
     const a = document.createElement('a');
     a.href = url;
     a.download = f.originalName;
-    a.target = '_blank';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
