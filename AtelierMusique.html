@@ -1295,6 +1295,7 @@
     <span class="badge" id="connectionBadge">● Non connecté</span>
     <button class="btn" id="disconnectBtn" onclick="disconnect()" style="display:none">Déconnexion</button>
     <button class="btn" id="connectBtn" onclick="showConnectModal()">⚡ Connecter pCloud</button>
+    <button class="btn" id="undoBtn" onclick="undo()" title="Annuler (⌘Z)" disabled style="opacity:.4">↩ Annuler</button>
     <div style="position:relative;display:inline-block">
       <button class="btn" id="moreMenuBtn" onclick="toggleMoreMenu()" title="Plus d'options">⋮</button>
       <div id="moreMenu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:var(--surface2);border:1px solid var(--border);border-radius:8px;min-width:160px;z-index:100;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.4)">
@@ -1661,6 +1662,7 @@ let state = {
   files: [], folders: [],
   selectedFile: null, selectedFolder: 'all',
   selectedTagsStyle: [], selectedTagsInst: [], sharedSaveTimer: null, tagEditMode: false, tagsCollapsed: false, view: 'grid',
+  history: [], historyIndex: -1,
   pcloud: { token: null, server: 'eapi.pcloud.com', connected: false },
   folderColor: '#e8ff47', search: '',
   pendingClientId: null, pendingServer: null,
@@ -2297,6 +2299,7 @@ function generateDemoFiles() {
 //  FOLDERS
 // ============================================================
 function addFolder() {
+  pushHistory();
   const name = document.getElementById('newFolderName').value.trim();
   if (!name) return;
   state.folders.push({ id: 'dir_'+Date.now(), name, color: state.folderColor });
@@ -2324,6 +2327,7 @@ function toggleFolderMenu(id, btn) {
 }
 
 function duplicateFolder(id) {
+  pushHistory();
   document.querySelectorAll('.folder-contextmenu').forEach(m => m.style.display = 'none');
   const folder = state.folders.find(f => f.id === id);
   if (!folder) return;
@@ -2353,6 +2357,7 @@ function deleteFolder(id) {
     ? `Supprimer le dossier "${folder.name}" ? Il contient ${count} fichier(s) — ceux-ci ne seront pas supprimés.`
     : `Supprimer le dossier "${folder.name}" ?`;
   if (!confirm(msg)) return;
+  pushHistory();
   const wasShared = folder.shared;
   state.folders = state.folders.filter(f => f.id !== id);
   state.files.forEach(f => { f.folders = (f.folders || []).filter(fid => fid !== id); });
@@ -2720,6 +2725,7 @@ function tagDragStart(e, fileId, tag, fromCat) {
 
 function tagDrop(e, toCat) {
   try {
+    pushHistory();
     const { fileId, tag, fromCat } = JSON.parse(e.dataTransfer.getData('text/plain'));
     if (fromCat === toCat) return;
     const f = state.files.find(f => f.id === fileId);
@@ -2741,6 +2747,8 @@ function tagDrop(e, toCat) {
 }
 
 function updateSelectedFile() {
+  clearTimeout(state._updateHistTimer);
+  state._updateHistTimer = setTimeout(pushHistory, 800);
   if (!state.selectedFile) return;
   const f = state.files.find(f => f.id === state.selectedFile);
   if (!f) return;
@@ -2979,6 +2987,7 @@ function handleTagInput(e, cat) {
 
 function addTagToSelected(cat) {
   if (!state.selectedFile) return;
+  pushHistory();
   const inputId = cat === 'inst' ? 'tagInstInput' : 'tagStyleInput';
   const input = document.getElementById(inputId);
   if (!input) return;
@@ -3000,6 +3009,7 @@ function addTagToSelected(cat) {
 function removeTagFromFile(fileId, tag, cat) {
   const f = state.files.find(f => f.id === fileId);
   if (!f) return;
+  pushHistory();
   if (cat === 'inst') {
     f.tagsInst = (f.tagsInst || f.tags || []).filter(t => t !== tag);
   } else {
@@ -3060,6 +3070,35 @@ function toggleMoreMenu() {
   }
 }
 
+// ============================================================
+//  UNDO — historique 10 étapes
+// ============================================================
+function pushHistory() {
+  const snapshot = JSON.stringify({ files: state.files, folders: state.folders });
+  // Tronquer si on est au milieu de l'historique
+  state.history = state.history.slice(0, state.historyIndex + 1);
+  state.history.push(snapshot);
+  if (state.history.length > 10) state.history.shift();
+  state.historyIndex = state.history.length - 1;
+  updateUndoBtn();
+}
+
+function undo() {
+  if (state.historyIndex <= 0) return;
+  state.historyIndex--;
+  const snapshot = JSON.parse(state.history[state.historyIndex]);
+  state.files   = snapshot.files;
+  state.folders = snapshot.folders;
+  save(); render();
+  showToast('Action annulée');
+  updateUndoBtn();
+}
+
+function updateUndoBtn() {
+  const btn = document.getElementById('undoBtn');
+  if (btn) btn.disabled = state.historyIndex <= 0;
+}
+
 function clearSearch() {
   const input = document.getElementById('searchInput');
   input.value = '';
@@ -3084,6 +3123,7 @@ function toggleTagEditMode() {
 function deleteTagGlobally(tag, cat) {
   const count = state.files.filter(f => (cat === 'inst' ? (f.tagsInst||f.tags||[]) : (f.tagsStyle||[])).includes(tag)).length;
   if (!confirm(`Supprimer le tag "${tag}" de ${count} son${count>1?'s':''} ?`)) return;
+  pushHistory();
   state.files.forEach(f => {
     if (cat === 'inst') f.tagsInst = (f.tagsInst || f.tags || []).filter(t => t !== tag);
     else f.tagsStyle = (f.tagsStyle || []).filter(t => t !== tag);
@@ -3866,6 +3906,7 @@ document.addEventListener('keydown', e => {
     if (state.selectedFile) closeDetail();
   }
   if ((e.ctrlKey||e.metaKey) && e.key==='f') { e.preventDefault(); document.getElementById('searchInput').focus(); }
+  if ((e.ctrlKey||e.metaKey) && e.key==='z') { e.preventDefault(); undo(); }
   if (e.key === ' ' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
     if (audio.src) { e.preventDefault(); playerToggle(); }
   }
