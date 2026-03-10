@@ -1941,49 +1941,19 @@ async function loadSharedFolders() {
     const res = await fetch(proxyUrl);
     if (!res.ok) return;
     const data = JSON.parse(await res.text());
-
-    // 1. Merger les annotations de tous les sons
-    (data.allFiles || []).forEach(sf_file => {
-      const local = state.files.find(f => f.originalPath === sf_file.path);
+    // Merger annotations — last-write-wins pour alias/notes, union pour tags
+    (data.files || []).forEach(sf => {
+      const local = state.files.find(f => f.originalPath === sf.path);
       if (!local) return;
-      // Tags : union
-      local.tags = [...new Set([...(local.tags || []), ...(sf_file.tags || [])])];
-      // Alias & notes : last-write-wins
+      local.tags = [...new Set([...(local.tags || []), ...(sf.tags || [])])];
       const localDate = local.updatedAt ? new Date(local.updatedAt) : new Date(0);
-      const sharedDate = sf_file.updatedAt ? new Date(sf_file.updatedAt) : new Date(0);
+      const sharedDate = sf.updatedAt ? new Date(sf.updatedAt) : new Date(0);
       if (sharedDate > localDate) {
-        if (sf_file.alias) local.alias = sf_file.alias;
-        if (sf_file.notes) local.notes = sf_file.notes;
-        local.updatedAt = sf_file.updatedAt;
+        if (sf.alias !== undefined) local.alias = sf.alias;
+        if (sf.notes !== undefined) local.notes = sf.notes;
+        local.updatedAt = sf.updatedAt;
       }
     });
-
-    // 2. Merger les dossiers virtuels partagés
-    const sharedFolders = data.folders || [];
-    sharedFolders.forEach(sf => {
-      let folder = state.folders.find(f => f.id === sf.id);
-      if (!folder) {
-        folder = { id: sf.id, name: sf.name, color: sf.color, shared: true };
-        state.folders.push(folder);
-      } else {
-        folder.name = sf.name;
-        folder.color = sf.color;
-        folder.shared = true;
-      }
-      // Associer les fichiers au dossier par path
-      (sf.files || []).forEach(path => {
-        const local = state.files.find(f => f.originalPath === path);
-        if (!local) return;
-        if (!local.folders) local.folders = [];
-        if (!local.folders.includes(folder.id)) local.folders.push(folder.id);
-      });
-    });
-
-    // Dossiers qui ne sont plus partagés → passer en local
-    state.folders.forEach(f => {
-      if (f.shared && !sharedFolders.find(sf => sf.id === f.id)) f.shared = false;
-    });
-
     save();
     render();
   } catch(e) {
@@ -1991,55 +1961,30 @@ async function loadSharedFolders() {
   }
 }
 
-// syncSharedFolderFiles intégré dans loadSharedFolders
-
 async function saveSharedFolders() {
   if (!state.pcloud.connected) return;
-  try {
-    const now = new Date().toISOString();
-    // Tous les sons — toujours partagés (alias, tags, notes, updatedAt)
-    const allFiles = state.files.map(file => ({
-      path: file.originalPath,
-      alias: file.alias || '',
-      notes: file.notes || '',
-      tags: file.tags || [],
-      updatedAt: file.updatedAt || now
-    }));
-    // Dossiers virtuels partagés — seulement les paths (annotations dans allFiles)
-    const sharedFolders = state.folders
-      .filter(f => f.shared)
-      .map(f => ({
-        id: f.id,
-        name: f.name,
-        color: f.color,
-        paths: state.files.filter(file => (file.folders||[]).includes(f.id)).map(file => file.originalPath)
+  clearTimeout(state.sharedSaveTimer);
+  state.sharedSaveTimer = setTimeout(async () => {
+    try {
+      const now = new Date().toISOString();
+      const files = state.files.map(f => ({
+        path: f.originalPath,
+        alias: f.alias || '',
+        notes: f.notes || '',
+        tags: f.tags || [],
+        updatedAt: f.updatedAt || now
       }));
-    const json = JSON.stringify({ allFiles, folders: sharedFolders, savedAt: now });
-    const blob = new Blob([json], { type: 'application/json' });
-    const formData = new FormData();
-    formData.append('filename', SHARED_FILENAME);
-    formData.append('file', blob, SHARED_FILENAME);
-    const uploadUrl = `https://${state.pcloud.server}/uploadfile?auth=${encodeURIComponent(state.pcloud.token)}&path=${encodeURIComponent(EXPLORER_ROOT)}&filename=${encodeURIComponent(SHARED_FILENAME)}&nopartial=1`;
-    await fetch(uploadUrl, { method: 'POST', body: formData });
-  } catch(e) {
-    console.warn('saveSharedFolders échoué:', e.message);
-  }
-}
-
-async function toggleShareFolder(id) {
-  const folder = state.folders.find(f => f.id === id);
-  if (!folder) return;
-  if (folder.shared) {
-    if (!confirm(`Arrêter le partage du dossier "${folder.name}" ?`)) return;
-    folder.shared = false;
-    delete folder.paths;
-  } else {
-    folder.shared = true;
-  }
-  await saveSharedFolders();
-  save();
-  renderSidebar();
-  showToast(folder.shared ? `"${folder.name}" partagé` : `"${folder.name}" non partagé`);
+      const json = JSON.stringify({ files, savedAt: now });
+      const blob = new Blob([json], { type: 'application/json' });
+      const formData = new FormData();
+      formData.append('filename', SHARED_FILENAME);
+      formData.append('file', blob, SHARED_FILENAME);
+      const uploadUrl = `https://${state.pcloud.server}/uploadfile?auth=${encodeURIComponent(state.pcloud.token)}&path=${encodeURIComponent(EXPLORER_ROOT)}&filename=${encodeURIComponent(SHARED_FILENAME)}&nopartial=1`;
+      await fetch(uploadUrl, { method: 'POST', body: formData });
+    } catch(e) {
+      console.warn('saveSharedFolders échoué:', e.message);
+    }
+  }, 2000);
 }
 
 function disconnect() {
@@ -2332,11 +2277,9 @@ function deleteFolder(id) {
     ? `Supprimer le dossier "${folder.name}" ? Il contient ${count} fichier(s) — ceux-ci ne seront pas supprimés.`
     : `Supprimer le dossier "${folder.name}" ?`;
   if (!confirm(msg)) return;
-  const wasShared = folder.shared;
   state.folders = state.folders.filter(f => f.id !== id);
   state.files.forEach(f => { f.folders = (f.folders || []).filter(fid => fid !== id); });
   if (state.selectedFolder === id) state.selectedFolder = 'all';
-  if (wasShared) saveSharedFolders();
   save(); renderSidebar(); renderFiles();
 }
 
@@ -2398,7 +2341,6 @@ function renderSidebar() {
       <span class="folder-icon">${folderSVG(14, f.color)}</span>
       <span data-folderid="${f.id}" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:text" ondblclick="event.stopPropagation();renameFolderInline('${f.id}')">${f.name}</span>
       <span class="folder-count">${count}</span>
-      <button class="folder-share-btn ${f.shared?'active':''}" onclick="event.stopPropagation();toggleShareFolder('${f.id}')" title="${f.shared?'Partagé — cliquer pour arrêter':'Partager'}">⇌</button>
       <div style="position:relative;flex-shrink:0">
         <button class="folder-menu-btn" onclick="event.stopPropagation();toggleFolderMenu('${f.id}',this)" title="Options">⋮</button>
         <div class="folder-contextmenu" id="fmenu-${f.id}" style="display:none">
@@ -2621,6 +2563,12 @@ function updateSelectedFile() {
 function touchFile(f) {
   f.updatedAt = new Date().toISOString();
   // Tous les sons sont partagés par défaut
+  saveSharedFolders();
+}
+
+// Met à jour updatedAt et synchronise les annotations partagées
+function touchFile(f) {
+  f.updatedAt = new Date().toISOString();
   saveSharedFolders();
 }
 
