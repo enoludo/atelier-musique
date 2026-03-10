@@ -1876,6 +1876,7 @@ async function load() {
     updateConnectionBadge(true);
     await loadFromPCloud();
     await detectExplorerRoot();
+    if (appMode === 'explorer') explorerGoTo(explorerPath);
     await autoSyncLibrary();
     await loadSharedFolders();
     saveSharedFolders();
