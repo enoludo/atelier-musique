@@ -3212,7 +3212,7 @@ function folderSVG(size=16, color='currentColor') {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/></svg>`;
 }
 let appMode = 'explorer';
-let explorerPath = '/02-MUSIQUE/01-ATELIER MUSIQUE';
+let explorerPath = null; // initialisé par detectExplorerRoot
 let explorerFolders = [];
 let explorerFiles = [];
 let EXPLORER_ROOT = '/02-MUSIQUE/01-ATELIER MUSIQUE';
@@ -3227,14 +3227,22 @@ async function detectExplorerRoot() {
   for (const path of candidates) {
     try {
       const data = await pcloudApi('listfolder', { path, nofiles: 0 });
-      if (data.result === 0) { EXPLORER_ROOT = path; return; }
+      if (data.result === 0) {
+        EXPLORER_ROOT = path;
+        explorerPath = path;
+        return;
+      }
     } catch(e) {}
   }
   // Scanner /Shared/
   try {
     const shared = await pcloudApi('listfolder', { path: '/Shared', nofiles: 0 });
     const found = (shared.metadata?.contents || []).find(f => f.isfolder && f.name === EXPLORER_FOLDER_NAME);
-    if (found) { EXPLORER_ROOT = '/Shared/' + EXPLORER_FOLDER_NAME; return; }
+    if (found) {
+      EXPLORER_ROOT = '/Shared/' + EXPLORER_FOLDER_NAME;
+      explorerPath = EXPLORER_ROOT;
+      return;
+    }
   } catch(e) {}
 }
 let explorerCache = {}; // path → contents
@@ -3259,6 +3267,7 @@ function setMode(mode) {
 //  EXPLORER
 // ============================================================
 async function explorerGoTo(path) {
+  if (!path) return;
   explorerPath = path;
   renderExplorerBreadcrumb(path);
 
