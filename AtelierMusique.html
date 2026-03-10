@@ -1930,29 +1930,50 @@ async function loadSharedFolders() {
     if (!res.ok) return;
     const data = JSON.parse(await res.text());
     const sharedFolders = data.folders || [];
-    // Merge : ajouter les dossiers partagés manquants, mettre à jour les existants
+
     sharedFolders.forEach(sf => {
-      const existing = state.folders.find(f => f.id === sf.id);
-      if (existing) {
-        existing.name = sf.name;
-        existing.color = sf.color;
-        existing.shared = true;
-        existing.paths = sf.paths;
-        // Reconstruire les associations fichiers
-        syncSharedFolderFiles(existing);
+      // Créer ou mettre à jour le dossier local
+      let folder = state.folders.find(f => f.id === sf.id);
+      if (!folder) {
+        folder = { id: sf.id, name: sf.name, color: sf.color, shared: true, folders: [] };
+        state.folders.push(folder);
       } else {
-        const newFolder = { ...sf, shared: true };
-        state.folders.push(newFolder);
-        syncSharedFolderFiles(newFolder);
+        folder.name = sf.name;
+        folder.color = sf.color;
+        folder.shared = true;
       }
+
+      // Merger les métadonnées fichiers
+      (sf.files || []).forEach(sf_file => {
+        const local = state.files.find(f => f.originalPath === sf_file.path);
+        if (!local) return;
+
+        // Tags : union
+        const merged = new Set([...(local.tags || []), ...(sf_file.tags || [])]);
+        local.tags = [...merged];
+
+        // Alias & notes : last-write-wins via updatedAt
+        const localDate = local.updatedAt ? new Date(local.updatedAt) : new Date(0);
+        const sharedDate = sf_file.updatedAt ? new Date(sf_file.updatedAt) : new Date(0);
+        if (sharedDate > localDate) {
+          local.alias = sf_file.alias || local.alias;
+          local.notes = sf_file.notes || local.notes;
+          local.updatedAt = sf_file.updatedAt;
+        }
+
+        // Associer le fichier au dossier
+        if (!local.folders) local.folders = [];
+        if (!local.folders.includes(folder.id)) local.folders.push(folder.id);
+      });
     });
-    // Marquer les dossiers locaux qui ne sont plus dans le shared comme non-partagés
+
+    // Dossiers qui ne sont plus partagés → passer en local
     state.folders.forEach(f => {
       if (f.shared && !sharedFolders.find(sf => sf.id === f.id)) {
         f.shared = false;
-        delete f.paths;
       }
     });
+
     save();
     render();
   } catch(e) {
@@ -1960,32 +1981,30 @@ async function loadSharedFolders() {
   }
 }
 
-function syncSharedFolderFiles(folder) {
-  // Associer les fichiers locaux au dossier partagé via originalPath
-  state.files.forEach(file => {
-    const inFolder = (folder.paths || []).includes(file.originalPath);
-    const alreadyIn = (file.folders || []).includes(folder.id);
-    if (inFolder && !alreadyIn) {
-      if (!file.folders) file.folders = [];
-      file.folders.push(folder.id);
-    } else if (!inFolder && alreadyIn) {
-      file.folders = file.folders.filter(id => id !== folder.id);
-    }
-  });
-}
+// syncSharedFolderFiles intégré dans loadSharedFolders
 
 async function saveSharedFolders() {
   if (!state.pcloud.connected) return;
   try {
+    const now = new Date().toISOString();
     const sharedFolders = state.folders
       .filter(f => f.shared)
-      .map(f => ({
-        id: f.id,
-        name: f.name,
-        color: f.color,
-        paths: state.files.filter(file => (file.folders||[]).includes(f.id)).map(file => file.originalPath)
-      }));
-    const json = JSON.stringify({ folders: sharedFolders, savedAt: new Date().toISOString() });
+      .map(f => {
+        const files = state.files.filter(file => (file.folders||[]).includes(f.id));
+        return {
+          id: f.id,
+          name: f.name,
+          color: f.color,
+          files: files.map(file => ({
+            path: file.originalPath,
+            alias: file.alias || '',
+            notes: file.notes || '',
+            tags: file.tags || [],
+            updatedAt: file.updatedAt || now
+          }))
+        };
+      });
+    const json = JSON.stringify({ folders: sharedFolders, savedAt: now });
     const blob = new Blob([json], { type: 'application/json' });
     const formData = new FormData();
     formData.append('filename', SHARED_FILENAME);
@@ -2584,7 +2603,18 @@ function updateSelectedFile() {
   f.notes = document.getElementById('editNotes').value;
   document.getElementById('detailAlias').textContent = f.alias || f.originalName;
   propagateToTwins(f);
+  touchFile(f);
   save(); renderFiles(); renderSidebar();
+}
+
+// Met à jour updatedAt et déclenche saveSharedFolders si le fichier est dans un dossier partagé
+function touchFile(f) {
+  f.updatedAt = new Date().toISOString();
+  const isInShared = (f.folders || []).some(fid => {
+    const folder = state.folders.find(v => v.id === fid);
+    return folder?.shared;
+  });
+  if (isInShared) saveSharedFolders();
 }
 
 // Propage alias/tags/notes aux fichiers avec le même hash pCloud (doublons de contenu)
@@ -2800,14 +2830,14 @@ function addTagToSelected() {
   const tag = input.value.trim().toLowerCase().replace(/\s+/g,'_');
   if (!tag) return;
   const f = state.files.find(f => f.id === state.selectedFile);
-  if (f && !f.tags.includes(tag)) { f.tags.push(tag); propagateToTwins(f); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
+  if (f && !f.tags.includes(tag)) { f.tags.push(tag); propagateToTwins(f); touchFile(f); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
   input.value = '';
   closeTagAutocomplete();
 }
 
 function removeTagFromFile(fileId, tag) {
   const f = state.files.find(f => f.id === fileId);
-  if (f) { f.tags = f.tags.filter(t => t !== tag); propagateToTwins(f); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
+  if (f) { f.tags = f.tags.filter(t => t !== tag); propagateToTwins(f); touchFile(f); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
 }
 
 function toggleTag(tag) {
