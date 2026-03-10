@@ -2431,8 +2431,8 @@ function renderSidebar() {
 
   const folderCount = state.folders.length;
   document.getElementById('statFolders').textContent = folderCount ? `(${folderCount})` : '';
-  document.getElementById('statTagsStyle').textContent = allTagsStyle.length ? `(${allTagsStyle.length})` : '';
-  document.getElementById('statTagsInst').textContent = allTagsInst.length ? `(${allTagsInst.length})` : '';
+  const totalTags = allTagsStyle.length + allTagsInst.length;
+  const el = document.getElementById('statTagsStyle'); if (el) el.textContent = totalTags ? `(${totalTags})` : '';
 }
 
 function renderFiles() {
