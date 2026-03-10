@@ -473,6 +473,12 @@
   .detail-tag[draggable] { cursor: grab; }
   .detail-tag[draggable]:active { cursor: grabbing; opacity: 0.5; }
   .detail-tags.drag-over { background: rgba(255,255,255,0.05); border-radius: 6px; outline: 1px dashed rgba(255,255,255,0.2); }
+  .tag.draggable { cursor: grab; }
+  .tag.draggable:active { opacity: 0.5; }
+  .tag-cloud.drag-over { background: rgba(255,255,255,0.04); border-radius: 6px; outline: 1px dashed rgba(255,255,255,0.15); min-height: 28px; }
+  .tag-edit-btn { display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;margin-left:3px;background:rgba(255,80,80,0.15);border:none;border-radius:50%;cursor:pointer;color:rgba(255,100,100,0.8);font-size:9px;line-height:1;padding:0;vertical-align:middle;transition:background .15s; }
+  .tag-edit-btn:hover { background:rgba(255,80,80,0.35); }
+  #tagEditBtn.active { color: var(--accent); }
   .sound-tag {
     font-size: 10px; padding: 1px 6px; border-radius: 10px;
     background: var(--surface3); color: var(--text3);
@@ -1294,14 +1300,18 @@
     </div>
 
     <div class="sidebar-section">
-      <div class="sidebar-title">Style / Ambiance <span id="statTagsStyle" style="font-weight:400;color:var(--text3);font-size:10px"></span></div>
+      <div class="sidebar-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Tags <span id="statTagsStyle" style="font-weight:400;color:var(--text3);font-size:10px"></span></span>
+        <button id="tagEditBtn" onclick="toggleTagEditMode()" style="background:none;border:none;cursor:pointer;font-size:10px;color:var(--text3);padding:0 2px;transition:color .15s" title="Organiser les tags">✎</button>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:'DM Mono',monospace">Style / Ambiance</div>
       <div class="tag-cloud" id="tagCloudStyle">
         <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
       </div>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-title">Instrument <span id="statTagsInst" style="font-weight:400;color:var(--text3);font-size:10px"></span></div>
-      <div class="tag-cloud" id="tagCloudInst">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:'DM Mono',monospace">Instrument</div>
+      <div class="tag-cloud" id="tagCloudInst" style="min-height:24px">
         <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
       </div>
     </div>
@@ -1607,7 +1617,7 @@
 let state = {
   files: [], folders: [],
   selectedFile: null, selectedFolder: 'all',
-  selectedTagsStyle: [], selectedTagsInst: [], sharedSaveTimer: null, view: 'grid',
+  selectedTagsStyle: [], selectedTagsInst: [], sharedSaveTimer: null, tagEditMode: false, view: 'grid',
   pcloud: { token: null, server: 'eapi.pcloud.com', connected: false },
   folderColor: '#e8ff47', search: '',
   pendingClientId: null, pendingServer: null,
@@ -2384,13 +2394,40 @@ function renderSidebar() {
   const allTagsStyle = [...new Set(state.files.flatMap(f => f.tagsStyle || []))];
   const allTagsInst  = [...new Set(state.files.flatMap(f => f.tagsInst || f.tags || []))];
 
-  document.getElementById('tagCloudStyle').innerHTML = allTagsStyle.length === 0
-    ? '<span style="font-size:11px;color:var(--text3);font-family:\'DM Mono\',monospace">Aucun tag</span>'
-    : allTagsStyle.map((t,i) => `<span class="tag ${colors[i%5]} ${(state.selectedTagsStyle||[]).includes(t)?'active':''}" onclick="toggleTag('${t}','style')">${t}</span>`).join('');
+  const makeCloudTag = (t, i, cat) => {
+    const active = (cat === 'style' ? state.selectedTagsStyle : state.selectedTagsInst)||[];
+    const isActive = active.includes(t);
+    const drag = state.tagEditMode ? `draggable="true" ondragstart="sidebarTagDragStart(event,'${t}','${cat}')"` : '';
+    const delBtn = state.tagEditMode ? `<button class="tag-edit-btn" onclick="event.stopPropagation();deleteTagGlobally('${t}','${cat}')">✕</button>` : '';
+    const click = state.tagEditMode ? '' : `onclick="toggleTag('${t}','${cat}')"`;
+    return `<span class="tag ${colors[i%5]} ${isActive?'active':''} ${state.tagEditMode?'draggable':''}" ${drag} ${click}>${t}${delBtn}</span>`;
+  };
 
-  document.getElementById('tagCloudInst').innerHTML = allTagsInst.length === 0
+  const styleEl = document.getElementById('tagCloudStyle');
+  const instEl  = document.getElementById('tagCloudInst');
+
+  styleEl.innerHTML = allTagsStyle.length === 0
     ? '<span style="font-size:11px;color:var(--text3);font-family:\'DM Mono\',monospace">Aucun tag</span>'
-    : allTagsInst.map((t,i) => `<span class="tag ${colors[i%5]} ${(state.selectedTagsInst||[]).includes(t)?'active':''}" onclick="toggleTag('${t}','inst')">${t}</span>`).join('');
+    : allTagsStyle.map((t,i) => makeCloudTag(t,i,'style')).join('');
+
+  instEl.innerHTML = allTagsInst.length === 0
+    ? '<span style="font-size:11px;color:var(--text3);font-family:\'DM Mono\',monospace">Aucun tag</span>'
+    : allTagsInst.map((t,i) => makeCloudTag(t,i,'inst')).join('');
+
+  // Zones de drop en mode édition
+  if (state.tagEditMode) {
+    [['tagCloudStyle','style'],['tagCloudInst','inst']].forEach(([id, cat]) => {
+      const el = document.getElementById(id);
+      el.ondragover  = e => { e.preventDefault(); el.classList.add('drag-over'); };
+      el.ondragleave = () => el.classList.remove('drag-over');
+      el.ondrop      = e => sidebarTagDrop(e, cat);
+    });
+  } else {
+    ['tagCloudStyle','tagCloudInst'].forEach(id => {
+      const el = document.getElementById(id);
+      el.ondragover = el.ondragleave = el.ondrop = null;
+    });
+  }
 
   const folderCount = state.folders.length;
   document.getElementById('statFolders').textContent = folderCount ? `(${folderCount})` : '';
@@ -2889,6 +2926,50 @@ function removeTagFromFile(fileId, tag, cat) {
     f.tagsStyle = (f.tagsStyle || []).filter(t => t !== tag);
   }
   propagateToTwins(f); touchFile(f); save(); renderDetailTags(f); renderSidebar(); renderFiles();
+}
+
+function toggleTagEditMode() {
+  state.tagEditMode = !state.tagEditMode;
+  const btn = document.getElementById('tagEditBtn');
+  if (btn) btn.classList.toggle('active', state.tagEditMode);
+  renderSidebar();
+}
+
+function deleteTagGlobally(tag, cat) {
+  const count = state.files.filter(f => (cat === 'inst' ? (f.tagsInst||f.tags||[]) : (f.tagsStyle||[])).includes(tag)).length;
+  if (!confirm(`Supprimer le tag "${tag}" de ${count} son${count>1?'s':''} ?`)) return;
+  state.files.forEach(f => {
+    if (cat === 'inst') f.tagsInst = (f.tagsInst || f.tags || []).filter(t => t !== tag);
+    else f.tagsStyle = (f.tagsStyle || []).filter(t => t !== tag);
+  });
+  touchFile(state.files[0] || {}); save(); renderSidebar(); renderFiles();
+}
+
+function sidebarTagDragStart(e, tag, fromCat) {
+  e.dataTransfer.setData('text/plain', JSON.stringify({ tag, fromCat }));
+  e.stopPropagation();
+}
+
+function sidebarTagDrop(e, toCat) {
+  e.preventDefault();
+  document.getElementById('tagCloudStyle').classList.remove('drag-over');
+  document.getElementById('tagCloudInst').classList.remove('drag-over');
+  try {
+    const { tag, fromCat } = JSON.parse(e.dataTransfer.getData('text/plain'));
+    if (fromCat === toCat) return;
+    // Déplacer le tag sur tous les fichiers qui l'ont
+    state.files.forEach(f => {
+      const srcArr = fromCat === 'inst' ? (f.tagsInst || f.tags || []) : (f.tagsStyle || []);
+      if (!srcArr.includes(tag)) return;
+      if (fromCat === 'inst') f.tagsInst = srcArr.filter(t => t !== tag);
+      else f.tagsStyle = srcArr.filter(t => t !== tag);
+      if (toCat === 'inst') { if (!f.tagsInst) f.tagsInst = []; if (!f.tagsInst.includes(tag)) f.tagsInst.push(tag); }
+      else { if (!f.tagsStyle) f.tagsStyle = []; if (!f.tagsStyle.includes(tag)) f.tagsStyle.push(tag); }
+    });
+    touchFile(state.files[0] || {}); save(); renderSidebar(); renderFiles();
+    // Re-render detail si un fichier est sélectionné
+    if (state.selectedFile) { const f = state.files.find(f => f.id === state.selectedFile); if (f) renderDetailTags(f); }
+  } catch(err) { console.warn('sidebarTagDrop error', err); }
 }
 
 function toggleTag(tag, cat) {
