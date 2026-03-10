@@ -2852,10 +2852,10 @@ function renderTagAutocomplete(val, cat) {
   if (!query) { ac.style.display = 'none'; return; }
   const f = state.selectedFile ? state.files.find(f => f.id === state.selectedFile) : null;
   const existing = f ? (cat === 'inst' ? (f.tagsInst||f.tags||[]) : (f.tagsStyle||[])) : [];
-  const matches = getAllTags().filter(t => t.startsWith(query) && !existing.includes(t));
+  const matches = getAllTags(cat).filter(t => t.startsWith(query) && !existing.includes(t));
   if (!matches.length) { ac.style.display = 'none'; return; }
   ac.innerHTML = matches.slice(0, 8).map((t, i) =>
-    `<div class="tag-autocomplete-item" data-i="${i}" onmousedown="selectTagSuggestion('${t}')">${t}</div>`
+    `<div class="tag-autocomplete-item" data-i="${i}" onmousedown="selectTagSuggestion('${t}','${cat}')">${t}</div>`
   ).join('');
   ac.style.display = 'block';
 }
