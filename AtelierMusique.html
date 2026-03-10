@@ -157,10 +157,21 @@
   .sidebar-scroll::-webkit-scrollbar { width: 4px; }
   .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
   .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-  .sidebar-tags-fixed {
+  .sidebar-tags-panel {
     flex-shrink: 0;
+    max-height: 40%;
+    display: flex;
+    flex-direction: column;
     border-top: 1px solid var(--border);
   }
+  .sidebar-tags-panel .tag-cloud-wrap {
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+  }
+  .sidebar-tags-panel .tag-cloud-wrap::-webkit-scrollbar { width: 4px; }
+  .sidebar-tags-panel .tag-cloud-wrap::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-tags-panel .tag-cloud-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
   .tag-cloud-wrap {
     overflow: hidden;
     transition: max-height .25s ease;
@@ -1327,25 +1338,24 @@
       </div>
     </div>
 
-    <!-- TAGS — fixes en bas -->
-    <div class="sidebar-tags-fixed">
-      <div class="sidebar-section" style="padding-bottom:10px">
-        <div class="sidebar-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <div class="sidebar-tags-panel">
+      <div class="sidebar-section" style="padding-bottom:6px;flex-shrink:0">
+        <div class="sidebar-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0">
           <span>Tags <span id="statTagsStyle" style="font-weight:400;color:var(--text3);font-size:10px"></span></span>
           <div style="display:flex;gap:5px;align-items:center">
             <button id="tagEditBtn" onclick="toggleTagEditMode()" class="tag-collapse-btn" title="Organiser les tags">✎</button>
             <button id="tagsCollapseBtn" onclick="toggleTagsCollapse()" class="tag-collapse-btn" title="Replier/déplier">▾</button>
           </div>
         </div>
-        <div class="tag-cloud-wrap" id="tagsCloudWrap">
-          <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:'DM Mono',monospace">Style / Ambiance</div>
-          <div class="tag-cloud" id="tagCloudStyle" style="margin-bottom:8px">
-            <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
-          </div>
-          <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:'DM Mono',monospace">Instrument</div>
-          <div class="tag-cloud" id="tagCloudInst" style="min-height:24px">
-            <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
-          </div>
+      </div>
+      <div class="tag-cloud-wrap" id="tagsCloudWrap" style="padding:0 16px 12px">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:'DM Mono',monospace">Style / Ambiance</div>
+        <div class="tag-cloud" id="tagCloudStyle" style="margin-bottom:8px">
+          <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
+        </div>
+        <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-family:'DM Mono',monospace">Instrument</div>
+        <div class="tag-cloud" id="tagCloudInst" style="min-height:24px">
+          <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
         </div>
       </div>
     </div>
@@ -2919,26 +2929,28 @@ function selectTagSuggestion(tag, cat) {
   addTagToSelected(cat);
 }
 
-function handleTagInput(e) {
-  const ac = document.getElementById('tagAutocomplete');
+function handleTagInput(e, cat) {
   const acEl = document.getElementById(cat === 'inst' ? 'tagAutocompleteInst' : 'tagAutocomplete');
   const items = acEl ? acEl.querySelectorAll('.tag-autocomplete-item') : [];
   if (e.key === 'ArrowDown') {
+    e.preventDefault();
     tagAcIndex = Math.min(tagAcIndex + 1, items.length - 1);
     items.forEach((el, i) => el.classList.toggle('active', i === tagAcIndex));
-    e.preventDefault(); return;
+    return;
   }
   if (e.key === 'ArrowUp') {
+    e.preventDefault();
     tagAcIndex = Math.max(tagAcIndex - 1, -1);
     items.forEach((el, i) => el.classList.toggle('active', i === tagAcIndex));
-    e.preventDefault(); return;
+    return;
   }
   if (e.key === 'Escape') { closeTagAutocomplete(); return; }
   if (e.key === 'Enter') {
+    e.preventDefault();
     if (tagAcIndex >= 0 && items[tagAcIndex]) {
-      selectTagSuggestion(items[tagAcIndex].textContent);
+      selectTagSuggestion(items[tagAcIndex].textContent, cat);
     } else {
-      addTagToSelected();
+      addTagToSelected(cat);
       closeTagAutocomplete();
     }
   }
