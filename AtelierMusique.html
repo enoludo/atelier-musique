@@ -315,6 +315,8 @@
   }
   .search-box input::placeholder { color: var(--text3); }
   .search-icon { color: var(--text3); font-size: 14px; }
+  .search-clear { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 14px; padding: 0 2px; line-height: 1; display: none; transition: color .15s; }
+  .search-clear:hover { color: var(--text); }
 
   .view-toggle {
     display: flex;
@@ -1363,7 +1365,8 @@
     <div class="toolbar">
       <div class="search-box">
         <span class="search-icon">⌕</span>
-        <input type="text" id="searchInput" placeholder="Rechercher alias, tags, fichiers..." oninput="filterFiles()">
+        <input type="text" id="searchInput" placeholder="Rechercher alias, tags, fichiers..." oninput="filterFiles();updateSearchClear()">
+        <button class="search-clear" id="searchClear" onclick="clearSearch()" title="Effacer">✕</button>
       </div>
       <div class="view-toggle">
         <button class="view-btn active" onclick="setView('grid')" id="gridBtn" title="Grille">⊞</button>
@@ -3055,6 +3058,20 @@ function toggleMoreMenu() {
       }
     }), 0);
   }
+}
+
+function clearSearch() {
+  const input = document.getElementById('searchInput');
+  input.value = '';
+  state.search = '';
+  updateSearchClear();
+  renderFiles();
+}
+
+function updateSearchClear() {
+  const input = document.getElementById('searchInput');
+  const btn = document.getElementById('searchClear');
+  if (btn) btn.style.display = input.value ? 'block' : 'none';
 }
 
 function toggleTagEditMode() {
