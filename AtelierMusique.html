@@ -1607,7 +1607,7 @@
 let state = {
   files: [], folders: [],
   selectedFile: null, selectedFolder: 'all',
-  selectedTagsStyle: [], selectedTagsInst: [], view: 'grid',
+  selectedTagsStyle: [], selectedTagsInst: [], sharedSaveTimer: null, view: 'grid',
   pcloud: { token: null, server: 'eapi.pcloud.com', connected: false },
   folderColor: '#e8ff47', search: '',
   pendingClientId: null, pendingServer: null,
@@ -1968,7 +1968,7 @@ async function loadSharedFolders() {
       if (!local) return;
       local.tagsStyle = [...new Set([...(local.tagsStyle || []), ...(sf.tagsStyle || [])])];
       local.tagsInst  = [...new Set([...(local.tagsInst || local.tags || []), ...(sf.tagsInst || [])])];
-      const localDate = local.updatedAt ? new Date(local.updatedAt) : new Date(0);
+      const localDate  = local.updatedAt ? new Date(local.updatedAt) : new Date(0);
       const sharedDate = sf.updatedAt ? new Date(sf.updatedAt) : new Date(0);
       if (sharedDate > localDate) {
         if (sf.alias !== undefined) local.alias = sf.alias;
@@ -2300,9 +2300,11 @@ function deleteFolder(id) {
     ? `Supprimer le dossier "${folder.name}" ? Il contient ${count} fichier(s) — ceux-ci ne seront pas supprimés.`
     : `Supprimer le dossier "${folder.name}" ?`;
   if (!confirm(msg)) return;
+  const wasShared = folder.shared;
   state.folders = state.folders.filter(f => f.id !== id);
   state.files.forEach(f => { f.folders = (f.folders || []).filter(fid => fid !== id); });
   if (state.selectedFolder === id) state.selectedFolder = 'all';
+  if (wasShared) saveSharedFolders();
   save(); renderSidebar(); renderFiles();
 }
 
@@ -2378,23 +2380,29 @@ function renderSidebar() {
   document.getElementById('count-library').textContent = state.files.length;
   document.getElementById('folder-all').className = 'folder-item' + (state.selectedFolder==='all'?' active':'');
 
-  const allTags = [...new Set(state.files.flatMap(f => f.tags))];
   const colors = ['color-0','color-1','color-2','color-3','color-4'];
-  document.getElementById('tagCloud').innerHTML = allTags.length === 0
+  const allTagsStyle = [...new Set(state.files.flatMap(f => f.tagsStyle || []))];
+  const allTagsInst  = [...new Set(state.files.flatMap(f => f.tagsInst || f.tags || []))];
+
+  document.getElementById('tagCloudStyle').innerHTML = allTagsStyle.length === 0
     ? '<span style="font-size:11px;color:var(--text3);font-family:\'DM Mono\',monospace">Aucun tag</span>'
-    : allTags.map((t,i) => `<span class="tag ${colors[i%5]} ${state.selectedTags.includes(t)?'active':''}" onclick="toggleTag('${t}')">${t}</span>`).join('');
+    : allTagsStyle.map((t,i) => `<span class="tag ${colors[i%5]} ${(state.selectedTagsStyle||[]).includes(t)?'active':''}" onclick="toggleTag('${t}','style')">${t}</span>`).join('');
+
+  document.getElementById('tagCloudInst').innerHTML = allTagsInst.length === 0
+    ? '<span style="font-size:11px;color:var(--text3);font-family:\'DM Mono\',monospace">Aucun tag</span>'
+    : allTagsInst.map((t,i) => `<span class="tag ${colors[i%5]} ${(state.selectedTagsInst||[]).includes(t)?'active':''}" onclick="toggleTag('${t}','inst')">${t}</span>`).join('');
 
   const folderCount = state.folders.length;
   document.getElementById('statFolders').textContent = folderCount ? `(${folderCount})` : '';
-  const tagCount = [...new Set(state.files.flatMap(f=>f.tags))].length;
-  document.getElementById('statTags').textContent = tagCount ? `(${tagCount})` : '';
+  document.getElementById('statTagsStyle').textContent = allTagsStyle.length ? `(${allTagsStyle.length})` : '';
+  document.getElementById('statTagsInst').textContent = allTagsInst.length ? `(${allTagsInst.length})` : '';
 }
 
 function renderFiles() {
   let files = state.files;
   if (state.selectedFolder !== 'all') files = files.filter(f => (f.folders||[f.folder]).includes(state.selectedFolder));
-  if (state.selectedTagsStyle.length > 0) files = files.filter(f => state.selectedTagsStyle.every(t => (f.tagsStyle||[]).includes(t)));
-  if (state.selectedTagsInst.length > 0) files = files.filter(f => state.selectedTagsInst.every(t => (f.tagsInst||f.tags||[]).includes(t)));
+  if ((state.selectedTagsStyle||[]).length > 0) files = files.filter(f => state.selectedTagsStyle.every(t => (f.tagsStyle||[]).includes(t)));
+  if ((state.selectedTagsInst||[]).length > 0) files = files.filter(f => state.selectedTagsInst.every(t => (f.tagsInst||f.tags||[]).includes(t)));
   if (state.search) {
     const s = state.search.toLowerCase();
     files = files.filter(f =>
@@ -2507,13 +2515,13 @@ function renderSoundRow(f, mode) {
   const path = f.originalPath || f.path || '';
   const selected = state.selectedFile === (id || path);
 
+  const tagsStyleRow = (f.tagsStyle || []).slice(0,1).map(t => `<span class="sound-tag">${t}</span>`).join('');
+  const tagsInstRow  = (f.tagsInst || f.tags || []).slice(0,1).map(t => `<span class="sound-tag sound-tag-inst">${t}</span>`).join('');
   const fileFolders = f.folders || (f.folder ? [f.folder] : []);
   const folderChips = fileFolders.slice(0,2).map(fid => {
     const vf = state.folders.find(v => v.id === fid);
     return vf ? `<span class="sound-chip"><span class="sound-chip-dot" style="background:${vf.color}"></span>${vf.name}</span>` : '';
   }).join('');
-  const tagsStyleRow = (f.tagsStyle || []).slice(0,1).map(t => `<span class="sound-tag">${t}</span>`).join('');
-  const tagsInstRow  = (f.tagsInst || f.tags || []).slice(0,1).map(t => `<span class="sound-tag sound-tag-inst">${t}</span>`).join('');
 
   const onclick = mode === 'library'
     ? `selectFile('${id}')`
@@ -2530,7 +2538,6 @@ function renderSoundRow(f, mode) {
     <span class="sound-row-name">${alias}</span>
     <span class="sound-row-original">${original}</span>
     ${folderChips ? `<span class="sound-row-chips">${folderChips}</span>` : ''}
-    ${tagsStyleRow || tagsInstRow ? `<span class="sound-row-chips">${tagsStyleRow}${tagsInstRow}</span>` : ''}
     ${duration}
     <span class="sound-row-size">${formatSize(size)}</span>
   </div>`;
@@ -2547,7 +2554,7 @@ function renderBreadcrumb() {
       ? `<span onclick="selectFolder('all')">Tous les sons</span><span style="opacity:.4"> / </span><span class="current" style="color:${folder.color}">${folder.name}</span>`
       : '';
   }
-  const selTags = [...state.selectedTagsStyle, ...state.selectedTagsInst];
+  const selTags = [...(state.selectedTagsStyle||[]), ...(state.selectedTagsInst||[])];
   if (selTags.length > 0) bc.innerHTML += `<span style="opacity:.4"> · </span><span style="color:var(--accent)">${selTags.join(', ')}</span>`;
 }
 
@@ -2586,7 +2593,6 @@ function renderDetailTags(f) {
   document.getElementById('detailTagsStyleList').innerHTML = tagsStyle.map(t => makeTag(t,'style',f.id)).join('');
   document.getElementById('detailTagsInstList').innerHTML  = tagsInst.map(t => makeTag(t,'inst',f.id)).join('');
 
-  // Zones de drop
   ['detailTagsStyleList','detailTagsInstList'].forEach(id => {
     const el = document.getElementById(id);
     const targetCat = id === 'detailTagsStyleList' ? 'style' : 'inst';
@@ -2606,13 +2612,11 @@ function tagDrop(e, toCat) {
     if (fromCat === toCat) return;
     const f = state.files.find(f => f.id === fileId);
     if (!f) return;
-    // Retirer de la source
     if (fromCat === 'inst') {
       f.tagsInst = (f.tagsInst || f.tags || []).filter(t => t !== tag);
     } else {
       f.tagsStyle = (f.tagsStyle || []).filter(t => t !== tag);
     }
-    // Ajouter dans la cible
     if (toCat === 'inst') {
       if (!f.tagsInst) f.tagsInst = [];
       if (!f.tagsInst.includes(tag)) f.tagsInst.push(tag);
@@ -2621,7 +2625,7 @@ function tagDrop(e, toCat) {
       if (!f.tagsStyle.includes(tag)) f.tagsStyle.push(tag);
     }
     propagateToTwins(f); touchFile(f); save(); renderDetailTags(f); renderSidebar(); renderFiles();
-  } catch(e) { console.warn('tagDrop error', e); }
+  } catch(err) { console.warn('tagDrop error', err); }
 }
 
 function updateSelectedFile() {
@@ -2640,12 +2644,6 @@ function updateSelectedFile() {
 function touchFile(f) {
   f.updatedAt = new Date().toISOString();
   // Tous les sons sont partagés par défaut
-  saveSharedFolders();
-}
-
-// Met à jour updatedAt et synchronise les annotations partagées
-function touchFile(f) {
-  f.updatedAt = new Date().toISOString();
   saveSharedFolders();
 }
 
@@ -2802,7 +2800,7 @@ let tagAcIndex = -1;
 function getAllTags(cat) {
   const set = new Set();
   if (cat === 'inst') {
-    state.files.forEach(f => (f.tagsInst || []).forEach(t => set.add(t)));
+    state.files.forEach(f => (f.tagsInst || f.tags || []).forEach(t => set.add(t)));
   } else {
     state.files.forEach(f => (f.tagsStyle || []).forEach(t => set.add(t)));
   }
@@ -2815,7 +2813,7 @@ function renderTagAutocomplete(val, cat) {
   const query = val.trim().toLowerCase().replace(/\s+/g,'_');
   if (!query) { ac.style.display = 'none'; return; }
   const f = state.selectedFile ? state.files.find(f => f.id === state.selectedFile) : null;
-  const existing = f ? (cat === 'inst' ? (f.tagsInst||[]) : (f.tagsStyle||f.tags||[])) : [];
+  const existing = f ? (cat === 'inst' ? (f.tagsInst||f.tags||[]) : (f.tagsStyle||[])) : [];
   const matches = getAllTags().filter(t => t.startsWith(query) && !existing.includes(t));
   if (!matches.length) { ac.style.display = 'none'; return; }
   ac.innerHTML = matches.slice(0, 8).map((t, i) =>
@@ -2838,7 +2836,7 @@ function selectTagSuggestion(tag, cat) {
   addTagToSelected(cat);
 }
 
-function handleTagInput(e, cat) {
+function handleTagInput(e) {
   const ac = document.getElementById('tagAutocomplete');
   const items = ac ? ac.querySelectorAll('.tag-autocomplete-item') : [];
   if (e.key === 'ArrowDown') {
@@ -2854,9 +2852,9 @@ function handleTagInput(e, cat) {
   if (e.key === 'Escape') { closeTagAutocomplete(); return; }
   if (e.key === 'Enter') {
     if (tagAcIndex >= 0 && items[tagAcIndex]) {
-      selectTagSuggestion(items[tagAcIndex].textContent, cat);
+      selectTagSuggestion(items[tagAcIndex].textContent);
     } else {
-      addTagToSelected(cat);
+      addTagToSelected();
       closeTagAutocomplete();
     }
   }
@@ -2866,6 +2864,7 @@ function addTagToSelected(cat) {
   if (!state.selectedFile) return;
   const inputId = cat === 'inst' ? 'tagInstInput' : 'tagStyleInput';
   const input = document.getElementById(inputId);
+  if (!input) return;
   const tag = input.value.trim().toLowerCase().replace(/\s+/g,'_');
   if (!tag) return;
   const f = state.files.find(f => f.id === state.selectedFile);
@@ -2881,9 +2880,15 @@ function addTagToSelected(cat) {
   closeTagAutocomplete();
 }
 
-function removeTagFromFile(fileId, tag) {
+function removeTagFromFile(fileId, tag, cat) {
   const f = state.files.find(f => f.id === fileId);
-  if (f) { f.tags = f.tags.filter(t => t !== tag); propagateToTwins(f); touchFile(f); save(); renderDetailTags(f); renderSidebar(); renderFiles(); }
+  if (!f) return;
+  if (cat === 'inst') {
+    f.tagsInst = (f.tagsInst || f.tags || []).filter(t => t !== tag);
+  } else {
+    f.tagsStyle = (f.tagsStyle || []).filter(t => t !== tag);
+  }
+  propagateToTwins(f); touchFile(f); save(); renderDetailTags(f); renderSidebar(); renderFiles();
 }
 
 function toggleTag(tag, cat) {
@@ -3267,22 +3272,13 @@ async function detectExplorerRoot() {
   for (const path of candidates) {
     try {
       const data = await pcloudApi('listfolder', { path, nofiles: 0 });
-      if (data.result === 0) {
-        EXPLORER_ROOT = path;
-        explorerPath = path;
-        return;
-      }
+      if (data.result === 0) { EXPLORER_ROOT = path; explorerPath = path; return; }
     } catch(e) {}
   }
-  // Scanner /Shared/
   try {
     const shared = await pcloudApi('listfolder', { path: '/Shared', nofiles: 0 });
     const found = (shared.metadata?.contents || []).find(f => f.isfolder && f.name === EXPLORER_FOLDER_NAME);
-    if (found) {
-      EXPLORER_ROOT = '/Shared/' + EXPLORER_FOLDER_NAME;
-      explorerPath = EXPLORER_ROOT;
-      return;
-    }
+    if (found) { EXPLORER_ROOT = '/Shared/' + EXPLORER_FOLDER_NAME; explorerPath = EXPLORER_ROOT; return; }
   } catch(e) {}
 }
 let explorerCache = {}; // path → contents
@@ -3498,8 +3494,8 @@ function showQuickImport(path, name, size, fileid) {
   document.getElementById('detailPath').textContent = path;
   document.getElementById('editAlias').value = name.replace(/\.[^.]+$/, '');
   document.getElementById('editNotes').value = '';
-  document.getElementById('detailTagsStyleList').innerHTML = '';
-  document.getElementById('detailTagsInstList').innerHTML = '';
+  if(document.getElementById('detailTagsStyleList')) document.getElementById('detailTagsStyleList').innerHTML = '';
+  if(document.getElementById('detailTagsInstList')) document.getElementById('detailTagsInstList').innerHTML = '';
   document.getElementById('detailFoldersList').innerHTML = '';
   document.getElementById('detailFoldersAdd').innerHTML = '';
 
