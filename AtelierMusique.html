@@ -1334,7 +1334,7 @@
 
     <!-- BREADCRUMB -->
     <div class="breadcrumb" id="breadcrumb">
-      <span onclick="explorerGoTo('/')" style="cursor:pointer">pCloud</span>
+      <span style="color:var(--text3)">Atelier Musique</span>
     </div>
 
     <!-- EXPLORER VIEW -->
@@ -3385,6 +3385,8 @@ function setMode(mode) {
 // ============================================================
 async function explorerGoTo(path) {
   if (!path) return;
+  // Interdire la navigation hors de EXPLORER_ROOT
+  if (!path.startsWith(EXPLORER_ROOT)) path = EXPLORER_ROOT;
   explorerPath = path;
   renderExplorerBreadcrumb(path);
 
@@ -3630,7 +3632,9 @@ function renderExplorerBreadcrumb(path) {
   const rel = path.startsWith(EXPLORER_ROOT) ? path.slice(EXPLORER_ROOT.length) : '';
   const parts = rel.split('/').filter(Boolean);
 
-  let html = `<span onclick="explorerGoTo('${EXPLORER_ROOT}')" style="cursor:pointer">Atelier Musique</span>`;
+  let html = parts.length === 0
+    ? `<span class="current">Atelier Musique</span>`
+    : `<span onclick="explorerGoTo('${EXPLORER_ROOT}')" style="cursor:pointer">Atelier Musique</span>`;
   let cumPath = EXPLORER_ROOT;
   parts.forEach((p, i) => {
     cumPath += '/' + p;
