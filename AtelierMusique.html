@@ -1403,6 +1403,7 @@
             oninput="renderTagAutocomplete(this.value,'inst')"
             onblur="setTimeout(closeTagAutocomplete, 150)">
           <button class="btn" onclick="addTagToSelected('inst')">+</button>
+          <div class="tag-autocomplete" id="tagAutocompleteInst" style="display:none"></div>
         </div>
       </div>
       <div class="detail-field">
@@ -2845,7 +2846,7 @@ function getAllTags(cat) {
 }
 
 function renderTagAutocomplete(val, cat) {
-  const ac = document.getElementById('tagAutocomplete');
+  const ac = document.getElementById(cat === 'inst' ? 'tagAutocompleteInst' : 'tagAutocomplete');
   tagAcIndex = -1;
   const query = val.trim().toLowerCase().replace(/\s+/g,'_');
   if (!query) { ac.style.display = 'none'; return; }
@@ -2860,6 +2861,8 @@ function renderTagAutocomplete(val, cat) {
 }
 
 function closeTagAutocomplete() {
+  const acInst = document.getElementById('tagAutocompleteInst');
+  if (acInst) { acInst.style.display = 'none'; acInst.innerHTML = ''; }
   const ac = document.getElementById('tagAutocomplete');
   if (ac) ac.style.display = 'none';
   tagAcIndex = -1;
@@ -2875,7 +2878,8 @@ function selectTagSuggestion(tag, cat) {
 
 function handleTagInput(e) {
   const ac = document.getElementById('tagAutocomplete');
-  const items = ac ? ac.querySelectorAll('.tag-autocomplete-item') : [];
+  const acEl = document.getElementById(cat === 'inst' ? 'tagAutocompleteInst' : 'tagAutocomplete');
+  const items = acEl ? acEl.querySelectorAll('.tag-autocomplete-item') : [];
   if (e.key === 'ArrowDown') {
     tagAcIndex = Math.min(tagAcIndex + 1, items.length - 1);
     items.forEach((el, i) => el.classList.toggle('active', i === tagAcIndex));
