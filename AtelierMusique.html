@@ -153,21 +153,19 @@
     overflow-y: auto;
     overflow-x: hidden;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
   .sidebar-scroll::-webkit-scrollbar { width: 4px; }
   .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
   .sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
   .sidebar-tags-panel {
-    flex-shrink: 0;
-    max-height: 40%;
-    display: flex;
-    flex-direction: column;
     border-top: 1px solid var(--border);
   }
   .sidebar-tags-panel .tag-cloud-wrap {
+    max-height: 45vh;
     overflow-y: auto;
     overflow-x: hidden;
-    min-height: 0;
   }
   .sidebar-tags-panel .tag-cloud-wrap::-webkit-scrollbar { width: 4px; }
   .sidebar-tags-panel .tag-cloud-wrap::-webkit-scrollbar-track { background: transparent; }
@@ -1336,7 +1334,6 @@
           + Nouveau dossier
         </button>
       </div>
-    </div>
 
     <div class="sidebar-tags-panel">
       <div class="sidebar-section" style="padding-bottom:6px;flex-shrink:0">
@@ -1359,6 +1356,7 @@
         </div>
       </div>
     </div>
+    </div><!-- /sidebar-scroll -->
 
   </aside>
 
