@@ -179,6 +179,17 @@
     max-height: 600px;
   }
   .tag-cloud-wrap.collapsed { max-height: 0; }
+  .tag-loop-filter {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; padding: 3px 9px; border-radius: 12px;
+    border: 1px solid var(--border); cursor: pointer;
+    background: none; color: var(--text2);
+    font-family: 'DM Mono', monospace; letter-spacing: 0.3px;
+    transition: background .15s, color .15s, border-color .15s;
+    margin-top: 8px;
+  }
+  .tag-loop-filter:hover { background: var(--surface3); }
+  .tag-loop-filter.active { background: var(--accent); color: #000; border-color: var(--accent); }
   .tag-collapse-btn {
     background: none; border: none; cursor: pointer;
     color: var(--text3); font-size: 11px; padding: 0 2px;
@@ -1377,6 +1388,11 @@
           <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">Aucun tag</span>
         </div>
       </div>
+      <div style="padding:0 16px 12px">
+        <button id="loopFilterBtn" class="tag-loop-filter" onclick="toggleLoopFilter()">
+          <span>⟳</span> Loop JAMMAN / RC505
+        </button>
+      </div>
     </div>
 
   </aside>
@@ -1688,7 +1704,7 @@
 let state = {
   files: [], folders: [],
   selectedFile: null, selectedFolder: 'all',
-  selectedTagsStyle: [], selectedTagsInst: [], sharedSaveTimer: null, tagEditMode: false, tagsCollapsed: false, view: 'grid',
+  selectedTagsStyle: [], selectedTagsInst: [], selectedLoop: false, sharedSaveTimer: null, tagEditMode: false, tagsCollapsed: false, view: 'grid',
   history: [], historyIndex: -1,
   pcloud: { token: null, server: 'eapi.pcloud.com', connected: false },
   folderColor: '#e8ff47', search: '',
@@ -2418,7 +2434,8 @@ function renameFolderInline(id) {
 
 function selectFolder(id) {
   state.selectedFolder = id;
-  state.selectedTagsStyle = []; state.selectedTagsInst = [];
+  state.selectedTagsStyle = []; state.selectedTagsInst = []; state.selectedLoop = false;
+  const lb = document.getElementById('loopFilterBtn'); if (lb) lb.classList.remove('active');
   renderSidebar(); renderFiles(); renderBreadcrumb();
 }
 
@@ -2541,6 +2558,7 @@ function renderFiles() {
   if (state.selectedFolder !== 'all') files = files.filter(f => (f.folders||[f.folder]).includes(state.selectedFolder));
   if ((state.selectedTagsStyle||[]).length > 0) files = files.filter(f => state.selectedTagsStyle.every(t => (f.tagsStyle||[]).includes(t)));
   if ((state.selectedTagsInst||[]).length > 0) files = files.filter(f => state.selectedTagsInst.every(t => (f.tagsInst||f.tags||[]).includes(t)));
+  if (state.selectedLoop) files = files.filter(f => f.isLoop);
   if (state.search) {
     const s = state.search.toLowerCase();
     files = files.filter(f =>
@@ -2694,6 +2712,9 @@ function renderBreadcrumb() {
   }
   const selStyle = state.selectedTagsStyle || [];
   const selInst  = state.selectedTagsInst  || [];
+  if (state.selectedLoop) {
+    bc.innerHTML += `<span style="opacity:.4"> · </span><span onclick="toggleLoopFilter()" title="Enlever ce filtre" style="cursor:pointer;background:var(--accent);color:#000;border-radius:4px;padding:1px 7px;font-size:11px;margin-right:3px;white-space:nowrap">⟳ Loop ✕</span>`;
+  }
   if (selStyle.length + selInst.length > 0) {
     bc.innerHTML += `<span style="opacity:.4"> · </span>`;
     selStyle.forEach(t => {
@@ -3156,6 +3177,13 @@ function updateSearchClear() {
   const input = document.getElementById('searchInput');
   const btn = document.getElementById('searchClear');
   if (btn) btn.style.display = input.value ? 'block' : 'none';
+}
+
+function toggleLoopFilter() {
+  state.selectedLoop = !state.selectedLoop;
+  const btn = document.getElementById('loopFilterBtn');
+  if (btn) btn.classList.toggle('active', state.selectedLoop);
+  renderFiles(); renderBreadcrumb();
 }
 
 function toggleTagEditMode() {
