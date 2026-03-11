@@ -4094,6 +4094,11 @@ document.addEventListener('keydown', e => {
 
 load();
 
+// Polling — recharger le shared toutes les 30s pour synchroniser avec les autres utilisateurs
+setInterval(() => {
+  if (state.pcloud.connected && !document.hidden) loadSharedFolders();
+}, 30000);
+
 // Inject SVG folder icons into static HTML elements
 document.getElementById('icon-explorer').innerHTML = folderSVG(14, 'var(--text2)');
 document.getElementById('icon-library').innerHTML = folderSVG(14, 'var(--text2)');
