@@ -2317,6 +2317,7 @@ async function autoSyncLibrary() {
   if (!state.pcloud.connected) return;
   if (state._syncRunning) return;
   state._syncRunning = true;
+  state._pendingSave = true; // bloquer le polling pendant le scan
   const firstLaunch = state.files.length === 0;
   if (firstLaunch) {
     setSyncStatus('syncing', 'Premier lancement — scan de la bibliothèque…');
@@ -2364,6 +2365,7 @@ async function autoSyncLibrary() {
     console.warn('autoSyncLibrary échoué:', e.message);
   } finally {
     state._syncRunning = false;
+    state._pendingSave = false; // relâcher le polling
   }
 }
 
