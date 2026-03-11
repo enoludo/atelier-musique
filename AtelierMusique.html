@@ -2059,7 +2059,7 @@ async function loadSharedFolders() {
     const sharedFile = (list.metadata?.contents || []).find(f => !f.isfolder && f.name === SHARED_FILENAME);
     if (!sharedFile) return;
     const proxyUrl = `${PROXY_URL}?auth=${encodeURIComponent(state.pcloud.token)}&server=${encodeURIComponent(state.pcloud.server)}&fileid=${sharedFile.fileid}&_=${Date.now()}`;
-    const res = await fetch(proxyUrl);
+    const res = await fetch(proxyUrl, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' } });
     if (!res.ok) return;
     const data = JSON.parse(await res.text());
     // Merger annotations — last-write-wins pour alias/notes/isLoop, union pour tags
@@ -2325,6 +2325,11 @@ async function scanFolder(path, exts, recursive) {
 
 async function autoSyncLibrary() {
   if (!state.pcloud.connected) return;
+  const firstLaunch = state.files.length === 0;
+  if (firstLaunch) {
+    setSyncStatus('syncing', 'Premier lancement — scan de la bibliothèque…');
+    showToast('Première connexion — scan en cours…');
+  }
   try {
     const files = await scanFolder(EXPLORER_ROOT, AUDIO_EXTENSIONS, true);
     // Index path→fichier pCloud pour lookup rapide
@@ -2356,7 +2361,12 @@ async function autoSyncLibrary() {
 
     if (added > 0 || hashUpdated > 0) {
       save(); render();
-      if (added > 0) showToast(`${added} nouveau(x) fichier(s) ajouté(s) à la bibliothèque`);
+      if (firstLaunch) {
+        showToast(`Bibliothèque initialisée — ${added} fichier(s) importé(s)`);
+        await loadSharedFolders();
+      } else if (added > 0) {
+        showToast(`${added} nouveau(x) fichier(s) ajouté(s) à la bibliothèque`);
+      }
     }
   } catch(e) {
     console.warn('autoSyncLibrary échoué:', e.message);
