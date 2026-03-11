@@ -2062,18 +2062,18 @@ async function loadSharedFolders() {
     const res = await fetch(proxyUrl);
     if (!res.ok) return;
     const data = JSON.parse(await res.text());
-    // Merger annotations — last-write-wins pour alias/notes, union pour tags
+    // Merger annotations — last-write-wins pour alias/notes/isLoop, union pour tags
     (data.files || []).forEach(sf => {
       const local = state.files.find(f => f.originalPath === sf.path);
       if (!local) return;
-      local.tagsStyle = [...new Set([...(local.tagsStyle || []), ...(sf.tagsStyle || [])])];
-      local.tagsInst  = [...new Set([...(local.tagsInst || local.tags || []), ...(sf.tagsInst || [])])];
-      if (sf.isLoop !== undefined && sharedDate >= localDate) local.isLoop = sf.isLoop;
       const localDate  = local.updatedAt ? new Date(local.updatedAt) : new Date(0);
       const sharedDate = sf.updatedAt ? new Date(sf.updatedAt) : new Date(0);
+      local.tagsStyle = [...new Set([...(local.tagsStyle || []), ...(sf.tagsStyle || [])])];
+      local.tagsInst  = [...new Set([...(local.tagsInst || local.tags || []), ...(sf.tagsInst || [])])];
       if (sharedDate > localDate) {
         if (sf.alias !== undefined) local.alias = sf.alias;
         if (sf.notes !== undefined) local.notes = sf.notes;
+        if (sf.isLoop !== undefined) local.isLoop = sf.isLoop;
         local.updatedAt = sf.updatedAt;
       }
     });
