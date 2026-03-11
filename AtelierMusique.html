@@ -2064,7 +2064,13 @@ async function loadSharedFolders() {
     const data = JSON.parse(await res.text());
     // Merger annotations — last-write-wins pour alias/notes/isLoop, union pour tags
     (data.files || []).forEach(sf => {
-      const local = state.files.find(f => f.originalPath === sf.path);
+      // Matcher par chemin relatif (compatible multi-utilisateurs) ou absolu
+      const sfRelative = sf.relativePath || (sf.path ? sf.path.replace(/^.*?\/01-ATELIER MUSIQUE\//, '') : '');
+      const local = state.files.find(f => {
+        if (f.originalPath === sf.path) return true;
+        const fRelative = f.originalPath ? f.originalPath.replace(/^.*?\/01-ATELIER MUSIQUE\//, '') : '';
+        return fRelative && sfRelative && fRelative === sfRelative;
+      });
       if (!local) return;
       const localDate  = local.updatedAt ? new Date(local.updatedAt) : new Date(0);
       const sharedDate = sf.updatedAt ? new Date(sf.updatedAt) : new Date(0);
@@ -2119,6 +2125,7 @@ async function saveSharedFolders() {
       const now = new Date().toISOString();
       const files = state.files.map(f => ({
         path: f.originalPath,
+        relativePath: f.originalPath ? f.originalPath.replace(EXPLORER_ROOT, '').replace(/^\//, '') : '',
         alias: f.alias || '',
         notes: f.notes || '',
         tagsStyle: f.tagsStyle || [],
