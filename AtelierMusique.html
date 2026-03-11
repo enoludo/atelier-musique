@@ -509,6 +509,14 @@
     overflow: hidden; flex-shrink: 0; margin-bottom: 4px;
   }
   .sound-tag-inst { background: rgba(255,180,50,0.12); color: rgba(255,180,50,0.85); border-color: rgba(255,180,50,0.2); }
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0 2px; }
+  .toggle-label { font-size: 12px; color: var(--text2); }
+  .toggle-switch { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .toggle-track { position: absolute; inset: 0; background: var(--surface3); border-radius: 20px; cursor: pointer; transition: background .2s; border: 1px solid var(--border); }
+  .toggle-switch input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
+  .toggle-track::after { content: ''; position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text3); transition: transform .2s, background .2s; }
+  .toggle-switch input:checked + .toggle-track::after { transform: translateX(16px); background: #000; }
   .detail-tag[draggable] { cursor: grab; }
   .detail-tag[draggable]:active { cursor: grabbing; opacity: 0.5; }
   .detail-tags.drag-over { background: rgba(255,255,255,0.05); border-radius: 6px; outline: 1px dashed rgba(255,255,255,0.2); }
@@ -1436,6 +1444,13 @@
       <div class="detail-field">
         <div class="detail-field-label">Notes</div>
         <textarea class="detail-input" id="editNotes" rows="4" placeholder="Description, contexte, BPM..." oninput="updateSelectedFile()"></textarea>
+        <div class="toggle-row">
+          <span class="toggle-label">Loop JAMMAN / RC505</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="editIsLoop" onchange="updateSelectedFile()">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
       </div>
       <div class="detail-field">
         <div class="detail-field-label">Style / Ambiance</div>
@@ -2036,6 +2051,7 @@ async function loadSharedFolders() {
       if (!local) return;
       local.tagsStyle = [...new Set([...(local.tagsStyle || []), ...(sf.tagsStyle || [])])];
       local.tagsInst  = [...new Set([...(local.tagsInst || local.tags || []), ...(sf.tagsInst || [])])];
+      if (sf.isLoop !== undefined && sharedDate >= localDate) local.isLoop = sf.isLoop;
       const localDate  = local.updatedAt ? new Date(local.updatedAt) : new Date(0);
       const sharedDate = sf.updatedAt ? new Date(sf.updatedAt) : new Date(0);
       if (sharedDate > localDate) {
@@ -2063,6 +2079,7 @@ async function saveSharedFolders() {
         notes: f.notes || '',
         tagsStyle: f.tagsStyle || [],
         tagsInst: f.tagsInst || f.tags || [],
+        isLoop: f.isLoop || false,
         updatedAt: f.updatedAt || now
       }));
       const json = JSON.stringify({ files, savedAt: now });
@@ -2702,7 +2719,8 @@ function selectFile(id) {
   document.getElementById('detailOriginal').textContent = f.originalName;
   document.getElementById('detailPath').textContent = f.originalPath;
   document.getElementById('editAlias').value = f.alias || '';
-  document.getElementById('editNotes').value = f.notes || '';
+  document.getElementById('editNotes').value  = f.notes || '';
+  document.getElementById('editIsLoop').checked = f.isLoop || false;
   document.getElementById('detailFooterPlay').style.display = 'flex';
   document.getElementById('detailFooterImport').style.display = 'none';
   renderDetailTags(f);
@@ -2766,7 +2784,8 @@ function updateSelectedFile() {
   const f = state.files.find(f => f.id === state.selectedFile);
   if (!f) return;
   f.alias = document.getElementById('editAlias').value;
-  f.notes = document.getElementById('editNotes').value;
+  f.notes  = document.getElementById('editNotes').value;
+  f.isLoop = document.getElementById('editIsLoop').checked;
   document.getElementById('detailAlias').textContent = f.alias || f.originalName;
   propagateToTwins(f);
   touchFile(f);
@@ -3788,7 +3807,8 @@ function showQuickImport(path, name, size, fileid) {
   document.getElementById('detailOriginal').textContent = name;
   document.getElementById('detailPath').textContent = path;
   document.getElementById('editAlias').value = name.replace(/\.[^.]+$/, '');
-  document.getElementById('editNotes').value = '';
+  document.getElementById('editNotes').value  = '';
+  if (document.getElementById('editIsLoop')) document.getElementById('editIsLoop').checked = false;
   if(document.getElementById('detailTagsStyleList')) document.getElementById('detailTagsStyleList').innerHTML = '';
   if(document.getElementById('detailTagsInstList')) document.getElementById('detailTagsInstList').innerHTML = '';
   document.getElementById('detailFoldersList').innerHTML = '';
