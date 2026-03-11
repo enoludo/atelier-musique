@@ -2905,7 +2905,6 @@ function quickAddToFolder(fileId, folderId) {
     f.folders.push(folderId);
     save(); renderSidebar(); renderFiles();
     const vf = state.folders.find(v => v.id === folderId);
-    if (vf?.shared)
     showToast(`Ajouté à "${vf?.name}" ✓`);
   }
 }
@@ -2984,7 +2983,6 @@ function addFileToFolder(fileId, folderId) {
     f.folders.push(folderId);
     save(); renderDetailFolders(f); renderSidebar(); renderFiles();
     const vf = state.folders.find(v => v.id === folderId);
-    if (vf?.shared)
   }
 }
 
@@ -3002,7 +3000,6 @@ function removeFileFromFolder(fileId, folderId) {
   f.folders = f.folders.filter(id => id !== folderId);
   save(); renderDetailFolders(f); renderSidebar(); renderFiles();
   const vf = state.folders.find(v => v.id === folderId);
-  if (vf?.shared)
 }
 
 let tagAcIndex = -1;
