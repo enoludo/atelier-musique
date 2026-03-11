@@ -2077,6 +2077,33 @@ async function loadSharedFolders() {
         local.updatedAt = sf.updatedAt;
       }
     });
+    // Merger dossiers virtuels — last-write-wins sur nom/couleur, union des fichiers
+    (data.folders || []).forEach(sf => {
+      const localDate = sf.updatedAt ? new Date(sf.updatedAt) : new Date(0);
+      let folder = state.folders.find(f => f.id === sf.id);
+      if (!folder) {
+        folder = { id: sf.id, name: sf.name, color: sf.color, updatedAt: sf.updatedAt };
+        state.folders.push(folder);
+      } else {
+        const myDate = folder.updatedAt ? new Date(folder.updatedAt) : new Date(0);
+        if (localDate > myDate) {
+          folder.name = sf.name;
+          folder.color = sf.color;
+          folder.updatedAt = sf.updatedAt;
+        }
+      }
+      // Associer les fichiers au dossier
+      (sf.files || []).forEach(path => {
+        const file = state.files.find(f => f.originalPath === path);
+        if (!file) return;
+        if (!file.folders) file.folders = [];
+        if (!file.folders.includes(folder.id)) file.folders.push(folder.id);
+      });
+    });
+    // Supprimer les dossiers locaux absents du shared (sauf si shared vide = premier push)
+    if ((data.folders || []).length > 0) {
+      state.folders = state.folders.filter(f => (data.folders||[]).find(sf => sf.id === f.id));
+    }
     save();
     render();
   } catch(e) {
@@ -2099,7 +2126,14 @@ async function saveSharedFolders() {
         isLoop: f.isLoop || false,
         updatedAt: f.updatedAt || now
       }));
-      const json = JSON.stringify({ files, savedAt: now });
+      const folders = state.folders.map(f => ({
+        id: f.id,
+        name: f.name,
+        color: f.color,
+        updatedAt: f.updatedAt || now,
+        files: state.files.filter(file => (file.folders||[]).includes(f.id)).map(file => file.originalPath)
+      }));
+      const json = JSON.stringify({ files, folders, savedAt: now });
       const blob = new Blob([json], { type: 'application/json' });
       const formData = new FormData();
       formData.append('filename', SHARED_FILENAME);
@@ -2424,7 +2458,7 @@ function renameFolderInline(id) {
   el.replaceWith(input);
   input.focus();
   input.select();
-  const confirm = () => { const name = input.value.trim(); if (name) { folder.name = name; save(); } renderSidebar(); };
+  const confirm = () => { const name = input.value.trim(); if (name) { folder.name = name; folder.updatedAt = new Date().toISOString(); save(); saveSharedFolders(); } renderSidebar(); };
   input.addEventListener('blur', confirm);
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') input.blur();
