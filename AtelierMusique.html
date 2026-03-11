@@ -1706,7 +1706,7 @@ let state = {
   files: [], folders: [],
   selectedFile: null, selectedFolder: 'all',
   selectedTagsStyle: [], selectedTagsInst: [], selectedLoop: false, sharedSaveTimer: null, tagEditMode: false, tagsCollapsed: false, view: 'grid',
-  history: [], historyIndex: -1,
+  history: [], historyIndex: -1, lastSavedAt: null,
   pcloud: { token: null, server: 'eapi.pcloud.com', connected: false },
   folderColor: '#e8ff47', search: '',
   pendingClientId: null, pendingServer: null,
@@ -2069,6 +2069,8 @@ async function loadSharedFolders() {
     const res = await fetch(proxyUrl, { cache: 'no-store' });
     if (!res.ok) return;
     const data = JSON.parse(await res.text());
+    // Ne pas écraser si on a sauvegardé plus récemment (évite race condition)
+    if (state.lastSavedAt && data.savedAt && data.savedAt < state.lastSavedAt) return;
     // Appliquer les annotations sur les fichiers locaux
     (data.files || []).forEach(sf => {
       const local = state.files.find(f => f.originalPath === sf.path);
@@ -2118,6 +2120,7 @@ async function saveSharedFolders() {
         id: f.id, name: f.name, color: f.color, updatedAt: f.updatedAt || now,
         files: state.files.filter(file => (file.folders||[]).includes(f.id)).map(file => file.originalPath)
       }));
+      state.lastSavedAt = now;
       const json = JSON.stringify({ files, folders, savedAt: now });
       const blob = new Blob([json], { type: 'application/json' });
       const formData = new FormData();
