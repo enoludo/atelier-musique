@@ -2059,7 +2059,7 @@ async function loadSharedFolders() {
     const sharedFile = (list.metadata?.contents || []).find(f => !f.isfolder && f.name === SHARED_FILENAME);
     if (!sharedFile) return;
     const proxyUrl = `${PROXY_URL}?auth=${encodeURIComponent(state.pcloud.token)}&server=${encodeURIComponent(state.pcloud.server)}&fileid=${sharedFile.fileid}&_=${Date.now()}`;
-    const res = await fetch(proxyUrl, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache, no-store', 'Pragma': 'no-cache' } });
+    const res = await fetch(proxyUrl, { cache: 'no-store' });
     if (!res.ok) return;
     const data = JSON.parse(await res.text());
     // Merger annotations — last-write-wins pour alias/notes/isLoop, union pour tags
