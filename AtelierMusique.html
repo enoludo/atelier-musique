@@ -2100,9 +2100,14 @@ async function loadSharedFolders() {
           folder.updatedAt = sf.updatedAt;
         }
       }
-      // Associer les fichiers au dossier
+      // Associer les fichiers au dossier — matcher par relativePath (multi-utilisateurs)
       (sf.files || []).forEach(path => {
-        const file = state.files.find(f => f.originalPath === path);
+        const rel = path.replace(/^.*?\/01-ATELIER MUSIQUE\//, '');
+        const file = state.files.find(f => {
+          if (f.originalPath === path) return true;
+          const fRel = f.originalPath ? f.originalPath.replace(/^.*?\/01-ATELIER MUSIQUE\//, '') : '';
+          return fRel && fRel === rel;
+        });
         if (!file) return;
         if (!file.folders) file.folders = [];
         if (!file.folders.includes(folder.id)) file.folders.push(folder.id);
