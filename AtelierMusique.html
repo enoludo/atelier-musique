@@ -1706,7 +1706,7 @@ let state = {
   files: [], folders: [],
   selectedFile: null, selectedFolder: 'all',
   selectedTagsStyle: [], selectedTagsInst: [], selectedLoop: false, sharedSaveTimer: null, tagEditMode: false, tagsCollapsed: false, view: 'grid',
-  history: [], historyIndex: -1, lastSavedAt: null,
+  history: [], historyIndex: -1, _pendingSave: false,
   pcloud: { token: null, server: 'eapi.pcloud.com', connected: false },
   folderColor: '#e8ff47', search: '',
   pendingClientId: null, pendingServer: null,
@@ -2069,8 +2069,8 @@ async function loadSharedFolders() {
     const res = await fetch(proxyUrl, { cache: 'no-store' });
     if (!res.ok) return;
     const data = JSON.parse(await res.text());
-    // Ne pas écraser si on a sauvegardé plus récemment (évite race condition)
-    if (state.lastSavedAt && data.savedAt && data.savedAt < state.lastSavedAt) return;
+    // Ne pas écraser si une sauvegarde est en cours (évite race condition)
+    if (state._pendingSave) return;
     // Appliquer les annotations sur les fichiers locaux
     (data.files || []).forEach(sf => {
       const local = state.files.find(f => f.originalPath === sf.path);
@@ -2128,8 +2128,10 @@ async function saveSharedFolders() {
       formData.append('file', blob, SHARED_FILENAME);
       const uploadUrl = `https://${state.pcloud.server}/uploadfile?auth=${encodeURIComponent(state.pcloud.token)}&path=${encodeURIComponent(EXPLORER_ROOT)}&filename=${encodeURIComponent(SHARED_FILENAME)}&nopartial=1`;
       await fetch(uploadUrl, { method: 'POST', body: formData });
+      state._pendingSave = false;
     } catch(e) {
       console.warn('saveSharedFolders échoué:', e.message);
+      state._pendingSave = false;
     }
   }, 2000);
 }
