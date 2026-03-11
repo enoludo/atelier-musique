@@ -2134,11 +2134,9 @@ async function saveSharedFolders() {
           const resR = await fetch(proxyUrlR, { cache: 'no-store' });
           if (resR.ok) {
             const dataR = JSON.parse(await resR.text());
-            // Utiliser uniquement si plus récent que notre cache
-            if (!lastShared.savedAt || (dataR.savedAt && dataR.savedAt > lastShared.savedAt)) {
-              lastShared = dataR;
-              state._lastSharedData = dataR;
-            }
+            // Toujours utiliser la version fraîche depuis pCloud
+            lastShared = dataR;
+            state._lastSharedData = dataR;
           }
         }
       } catch(e) {}
