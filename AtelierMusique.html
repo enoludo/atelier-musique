@@ -2108,10 +2108,8 @@ async function loadSharedFolders() {
         if (!file.folders.includes(folder.id)) file.folders.push(folder.id);
       });
     });
-    // Supprimer les dossiers locaux absents du shared (sauf si shared vide = premier push)
-    if ((data.folders || []).length > 0) {
-      state.folders = state.folders.filter(f => (data.folders||[]).find(sf => sf.id === f.id));
-    }
+    // Ne pas supprimer les dossiers locaux absents du shared
+    // (chaque utilisateur peut avoir ses propres dossiers)
     save();
     render();
   } catch(e) {
