@@ -2072,10 +2072,12 @@ async function loadSharedFolders() {
         return fRelative && sfRelative && fRelative === sfRelative;
       });
       if (!local) return;
-      const localDate  = local.updatedAt ? new Date(local.updatedAt) : new Date(0);
-      const sharedDate = sf.updatedAt ? new Date(sf.updatedAt) : new Date(0);
+      // Tags : toujours union, sans condition de date
       local.tagsStyle = [...new Set([...(local.tagsStyle || []), ...(sf.tagsStyle || [])])];
       local.tagsInst  = [...new Set([...(local.tagsInst || local.tags || []), ...(sf.tagsInst || [])])];
+      // Alias / notes / isLoop : last-write-wins
+      const localDate  = local.updatedAt ? new Date(local.updatedAt) : new Date(0);
+      const sharedDate = sf.updatedAt ? new Date(sf.updatedAt) : new Date(0);
       if (sharedDate > localDate) {
         if (sf.alias !== undefined) local.alias = sf.alias;
         if (sf.notes !== undefined) local.notes = sf.notes;
