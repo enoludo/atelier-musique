@@ -2061,6 +2061,7 @@ async function loadSharedFolders() {
     if (!res.ok) return;
     const data = JSON.parse(await res.text());
     state.sharedSavedAt = data.savedAt || null;
+    state._lastSharedData = data; // garder en mémoire pour merge
     // Merger annotations — last-write-wins pour alias/notes/isLoop, union pour tags
     (data.files || []).forEach(sf => {
       // Matcher uniquement par chemin relatif (compatible multi-utilisateurs)
@@ -2124,24 +2125,54 @@ async function saveSharedFolders() {
   state.sharedSaveTimer = setTimeout(async () => {
     try {
       const now = new Date().toISOString();
-      const files = state.files.map(f => ({
-        path: f.originalPath,
-        relativePath: f.originalPath ? f.originalPath.replace(/^.*?\/01-ATELIER MUSIQUE\//, '') : '',
-        alias: f.alias || '',
-        notes: f.notes || '',
-        tagsStyle: f.tagsStyle || [],
-        tagsInst: f.tagsInst || f.tags || [],
-        isLoop: f.isLoop || false,
-        updatedAt: f.updatedAt || now
-      }));
-      const folders = state.folders.map(f => ({
-        id: f.id,
-        name: f.name,
-        color: f.color,
-        updatedAt: f.updatedAt || now,
-        files: state.files.filter(file => (file.folders||[]).includes(f.id)).map(file => file.originalPath)
-      }));
+
+      // Merger les dossiers avec le dernier shared connu en mémoire
+      const lastShared = state._lastSharedData || { files: [], folders: [] };
+      const foldersById = {};
+      // D'abord les dossiers du shared
+      (lastShared.folders || []).forEach(sf => { foldersById[sf.id] = sf; });
+      // Puis les dossiers locaux — last-write-wins
+      state.folders.forEach(f => {
+        const existing = foldersById[f.id];
+        const localDate  = f.updatedAt ? new Date(f.updatedAt) : new Date(0);
+        const sharedDate = existing?.updatedAt ? new Date(existing.updatedAt) : new Date(0);
+        if (localDate >= sharedDate) {
+          foldersById[f.id] = {
+            id: f.id, name: f.name, color: f.color, updatedAt: f.updatedAt || now,
+            files: state.files.filter(file => (file.folders||[]).includes(f.id)).map(file => file.originalPath)
+          };
+        }
+      });
+      const folders = Object.values(foldersById);
+
+      // Merger les fichiers : tags union, alias/notes last-write-wins
+      const sharedIndex = {};
+      (lastShared.files || []).forEach(sf => {
+        const rel = sf.relativePath || (sf.path ? sf.path.replace(/^.*?\/01-ATELIER MUSIQUE\//, '') : '');
+        if (rel) sharedIndex[rel] = sf;
+      });
+      const files = state.files.map(f => {
+        const rel = f.originalPath ? f.originalPath.replace(/^.*?\/01-ATELIER MUSIQUE\//, '') : '';
+        const existing = sharedIndex[rel];
+        const localDate  = f.updatedAt ? new Date(f.updatedAt) : new Date(0);
+        const sharedDate = existing?.updatedAt ? new Date(existing.updatedAt) : new Date(0);
+        const tagsStyle = [...new Set([...(f.tagsStyle||[]), ...(existing?.tagsStyle||[])])];
+        const tagsInst  = [...new Set([...(f.tagsInst||f.tags||[]), ...(existing?.tagsInst||[])])];
+        const useLocal  = localDate >= sharedDate;
+        return {
+          path: f.originalPath,
+          relativePath: rel,
+          alias:     useLocal ? (f.alias||'') : (existing?.alias||f.alias||''),
+          notes:     useLocal ? (f.notes||'') : (existing?.notes||f.notes||''),
+          tagsStyle, tagsInst,
+          isLoop:    useLocal ? (f.isLoop||false) : (existing?.isLoop||f.isLoop||false),
+          updatedAt: useLocal ? (f.updatedAt||now) : (existing?.updatedAt||now)
+        };
+      });
+
       const json = JSON.stringify({ files, folders, savedAt: now });
+      // Mettre à jour le cache mémoire
+      state._lastSharedData = { files, folders, savedAt: now };
       const blob = new Blob([json], { type: 'application/json' });
       const formData = new FormData();
       formData.append('filename', SHARED_FILENAME);
