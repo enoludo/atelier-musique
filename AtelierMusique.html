@@ -1706,7 +1706,7 @@ let state = {
   files: [], folders: [],
   selectedFile: null, selectedFolder: 'all',
   selectedTagsStyle: [], selectedTagsInst: [], selectedLoop: false, sharedSaveTimer: null, tagEditMode: false, tagsCollapsed: false, view: 'grid',
-  history: [], historyIndex: -1,
+  history: [], historyIndex: -1, sharedSavedAt: null,
   pcloud: { token: null, server: 'eapi.pcloud.com', connected: false },
   folderColor: '#e8ff47', search: '',
   pendingClientId: null, pendingServer: null,
@@ -2062,6 +2062,7 @@ async function loadSharedFolders() {
     const res = await fetch(proxyUrl, { cache: 'no-store' });
     if (!res.ok) return;
     const data = JSON.parse(await res.text());
+    state.sharedSavedAt = data.savedAt || null;
     // Merger annotations — last-write-wins pour alias/notes/isLoop, union pour tags
     (data.files || []).forEach(sf => {
       // Matcher uniquement par chemin relatif (compatible multi-utilisateurs)
@@ -2125,23 +2126,67 @@ async function saveSharedFolders() {
   state.sharedSaveTimer = setTimeout(async () => {
     try {
       const now = new Date().toISOString();
-      const files = state.files.map(f => ({
-        path: f.originalPath,
-        relativePath: f.originalPath ? f.originalPath.replace(EXPLORER_ROOT, '').replace(/^\//, '') : '',
-        alias: f.alias || '',
-        notes: f.notes || '',
-        tagsStyle: f.tagsStyle || [],
-        tagsInst: f.tagsInst || f.tags || [],
-        isLoop: f.isLoop || false,
-        updatedAt: f.updatedAt || now
-      }));
-      const folders = state.folders.map(f => ({
-        id: f.id,
-        name: f.name,
-        color: f.color,
-        updatedAt: f.updatedAt || now,
-        files: state.files.filter(file => (file.folders||[]).includes(f.id)).map(file => file.originalPath)
-      }));
+
+      // Charger le shared actuel pour merger avant d'écraser
+      let sharedFiles = [];
+      let sharedFolders = [];
+      try {
+        const list = await pcloudApi('listfolder', { path: EXPLORER_ROOT, nofiles: 0 });
+        const sharedFile = (list.metadata?.contents || []).find(f => !f.isfolder && f.name === SHARED_FILENAME);
+        if (sharedFile) {
+          const proxyUrl = `${PROXY_URL}?auth=${encodeURIComponent(state.pcloud.token)}&server=${encodeURIComponent(state.pcloud.server)}&fileid=${sharedFile.fileid}&_=${Date.now()}`;
+          const res = await fetch(proxyUrl, { cache: 'no-store' });
+          if (res.ok) {
+            const data = JSON.parse(await res.text());
+            sharedFiles = data.files || [];
+            sharedFolders = data.folders || [];
+          }
+        }
+      } catch(e) {}
+
+      // Construire index shared par relativePath
+      const sharedIndex = {};
+      sharedFiles.forEach(sf => {
+        const rel = sf.relativePath || (sf.path ? sf.path.replace(/^.*?\/01-ATELIER MUSIQUE\//, '') : '');
+        if (rel) sharedIndex[rel] = sf;
+      });
+
+      const files = state.files.map(f => {
+        const rel = f.originalPath ? f.originalPath.replace(/^.*?\/01-ATELIER MUSIQUE\//, '') : '';
+        const existing = sharedIndex[rel];
+        const localDate  = f.updatedAt ? new Date(f.updatedAt) : new Date(0);
+        const sharedDate = existing?.updatedAt ? new Date(existing.updatedAt) : new Date(0);
+        // Tags : union
+        const tagsStyle = [...new Set([...(f.tagsStyle||[]), ...(existing?.tagsStyle||[])])];
+        const tagsInst  = [...new Set([...(f.tagsInst||f.tags||[]), ...(existing?.tagsInst||[])])];
+        // Alias/notes/isLoop : garder le plus récent
+        const useLocal = localDate >= sharedDate;
+        return {
+          path: f.originalPath,
+          relativePath: rel,
+          alias: useLocal ? (f.alias||'') : (existing?.alias||f.alias||''),
+          notes: useLocal ? (f.notes||'') : (existing?.notes||f.notes||''),
+          tagsStyle,
+          tagsInst,
+          isLoop: useLocal ? (f.isLoop||false) : (existing?.isLoop||f.isLoop||false),
+          updatedAt: useLocal ? (f.updatedAt||now) : (existing?.updatedAt||now)
+        };
+      });
+
+      // Dossiers : union par id, last-write-wins sur nom/couleur
+      const foldersById = {};
+      sharedFolders.forEach(sf => { foldersById[sf.id] = sf; });
+      state.folders.forEach(f => {
+        const existing = foldersById[f.id];
+        const localDate  = f.updatedAt ? new Date(f.updatedAt) : new Date(0);
+        const sharedDate = existing?.updatedAt ? new Date(existing.updatedAt) : new Date(0);
+        foldersById[f.id] = localDate >= sharedDate ? {
+          id: f.id, name: f.name, color: f.color, updatedAt: f.updatedAt || now,
+          files: state.files.filter(file => (file.folders||[]).includes(f.id)).map(file => file.originalPath)
+        } : existing;
+      });
+      const folders = Object.values(foldersById);
+
       const json = JSON.stringify({ files, folders, savedAt: now });
       const blob = new Blob([json], { type: 'application/json' });
       const formData = new FormData();
