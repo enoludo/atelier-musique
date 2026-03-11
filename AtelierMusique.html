@@ -2064,12 +2064,12 @@ async function loadSharedFolders() {
     const data = JSON.parse(await res.text());
     // Merger annotations — last-write-wins pour alias/notes/isLoop, union pour tags
     (data.files || []).forEach(sf => {
-      // Matcher par chemin relatif (compatible multi-utilisateurs) ou absolu
+      // Matcher uniquement par chemin relatif (compatible multi-utilisateurs)
       const sfRelative = sf.relativePath || (sf.path ? sf.path.replace(/^.*?\/01-ATELIER MUSIQUE\//, '') : '');
+      if (!sfRelative) return;
       const local = state.files.find(f => {
-        if (f.originalPath === sf.path) return true;
         const fRelative = f.originalPath ? f.originalPath.replace(/^.*?\/01-ATELIER MUSIQUE\//, '') : '';
-        return fRelative && sfRelative && fRelative === sfRelative;
+        return fRelative && fRelative === sfRelative;
       });
       if (!local) return;
       // Tags : toujours union, sans condition de date
