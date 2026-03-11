@@ -2056,7 +2056,7 @@ async function loadSharedFolders() {
     const list = await pcloudApi('listfolder', { path: EXPLORER_ROOT, nofiles: 0 });
     const sharedFile = (list.metadata?.contents || []).find(f => !f.isfolder && f.name === SHARED_FILENAME);
     if (!sharedFile) return;
-    const proxyUrl = `${PROXY_URL}?auth=${encodeURIComponent(state.pcloud.token)}&server=${encodeURIComponent(state.pcloud.server)}&fileid=${sharedFile.fileid}&_=${Date.now()}`;
+    const proxyUrl = `${PROXY_URL}?auth=${encodeURIComponent(state.pcloud.token)}&server=${encodeURIComponent(state.pcloud.server)}&fileid=${sharedFile.fileid}&filename=${SHARED_FILENAME}&_=${Date.now()}`;
     const res = await fetch(proxyUrl, { cache: 'no-store' });
     if (!res.ok) return;
     const data = JSON.parse(await res.text());
@@ -2126,8 +2126,24 @@ async function saveSharedFolders() {
     try {
       const now = new Date().toISOString();
 
-      // Merger les dossiers avec le dernier shared connu en mémoire
-      const lastShared = state._lastSharedData || { files: [], folders: [] };
+      // Recharger le shared depuis pCloud pour avoir l'état le plus récent
+      let lastShared = state._lastSharedData || { files: [], folders: [] };
+      try {
+        const listR = await pcloudApi('listfolder', { path: EXPLORER_ROOT, nofiles: 0 });
+        const sharedFileR = (listR.metadata?.contents || []).find(f => !f.isfolder && f.name === SHARED_FILENAME);
+        if (sharedFileR) {
+          const proxyUrlR = `${PROXY_URL}?auth=${encodeURIComponent(state.pcloud.token)}&server=${encodeURIComponent(state.pcloud.server)}&fileid=${sharedFileR.fileid}&filename=${SHARED_FILENAME}&_=${Date.now()}`;
+          const resR = await fetch(proxyUrlR, { cache: 'no-store' });
+          if (resR.ok) {
+            const dataR = JSON.parse(await resR.text());
+            // Utiliser uniquement si plus récent que notre cache
+            if (!lastShared.savedAt || (dataR.savedAt && dataR.savedAt > lastShared.savedAt)) {
+              lastShared = dataR;
+              state._lastSharedData = dataR;
+            }
+          }
+        }
+      } catch(e) {}
       const foldersById = {};
       // D'abord les dossiers du shared
       (lastShared.folders || []).forEach(sf => { foldersById[sf.id] = sf; });
