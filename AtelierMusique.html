@@ -1864,8 +1864,6 @@ async function connectWithPassword() {
     render();
     await detectExplorerRoot();
     await autoSyncLibrary();
-    await loadSharedFolders();
-
   } catch(e) {
     errEl.style.display = 'block';
     document.getElementById('loginErrorMsg').textContent = e.message || 'Erreur de connexion.';
@@ -1913,7 +1911,6 @@ async function load() {
     await detectExplorerRoot();
     if (appMode === 'explorer') explorerGoTo(explorerPath);
     await autoSyncLibrary();
-    await loadSharedFolders();
   } else {
     // No token yet — load local cache for offline preview
     try {
@@ -2356,7 +2353,6 @@ async function autoSyncLibrary() {
       save(); render();
       if (firstLaunch) {
         showToast(`Bibliothèque initialisée — ${added} fichier(s) importé(s)`);
-        await loadSharedFolders();
       } else if (added > 0) {
         showToast(`${added} nouveau(x) fichier(s) ajouté(s) à la bibliothèque`);
       }
@@ -2449,7 +2445,6 @@ function deleteFolder(id) {
   state.folders = state.folders.filter(f => f.id !== id);
   state.files.forEach(f => { f.folders = (f.folders || []).filter(fid => fid !== id); });
   if (state.selectedFolder === id) state.selectedFolder = 'all';
-  if (wasShared) saveSharedFolders();
   save(); renderSidebar(); renderFiles();
 }
 
@@ -2464,7 +2459,7 @@ function renameFolderInline(id) {
   el.replaceWith(input);
   input.focus();
   input.select();
-  const confirm = () => { const name = input.value.trim(); if (name) { folder.name = name; folder.updatedAt = new Date().toISOString(); save(); saveSharedFolders(); } renderSidebar(); };
+  const confirm = () => { const name = input.value.trim(); if (name) { folder.name = name; folder.updatedAt = new Date().toISOString(); save(); } renderSidebar(); };
   input.addEventListener('blur', confirm);
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') input.blur();
@@ -2859,7 +2854,7 @@ function updateSelectedFile() {
 function touchFile(f) {
   f.updatedAt = new Date().toISOString();
   // Tous les sons sont partagés par défaut
-  saveSharedFolders();
+ 
 }
 
 // Propage alias/tags/notes aux fichiers avec le même hash pCloud (doublons de contenu)
@@ -2910,7 +2905,7 @@ function quickAddToFolder(fileId, folderId) {
     f.folders.push(folderId);
     save(); renderSidebar(); renderFiles();
     const vf = state.folders.find(v => v.id === folderId);
-    if (vf?.shared) saveSharedFolders();
+    if (vf?.shared)
     showToast(`Ajouté à "${vf?.name}" ✓`);
   }
 }
@@ -2989,7 +2984,7 @@ function addFileToFolder(fileId, folderId) {
     f.folders.push(folderId);
     save(); renderDetailFolders(f); renderSidebar(); renderFiles();
     const vf = state.folders.find(v => v.id === folderId);
-    if (vf?.shared) saveSharedFolders();
+    if (vf?.shared)
   }
 }
 
@@ -3007,7 +3002,7 @@ function removeFileFromFolder(fileId, folderId) {
   f.folders = f.folders.filter(id => id !== folderId);
   save(); renderDetailFolders(f); renderSidebar(); renderFiles();
   const vf = state.folders.find(v => v.id === folderId);
-  if (vf?.shared) saveSharedFolders();
+  if (vf?.shared)
 }
 
 let tagAcIndex = -1;
@@ -4036,7 +4031,7 @@ load();
 
 // Polling — recharger le shared toutes les 30s pour synchroniser avec les autres utilisateurs
 setInterval(() => {
-  if (state.pcloud.connected && !document.hidden) loadSharedFolders();
+  if (state.pcloud.connected && !document.hidden && !state._pendingSave && !state._syncRunning) loadFromPCloud();
 }, 30000);
 
 // Inject SVG folder icons into static HTML elements
