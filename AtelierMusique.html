@@ -78,6 +78,9 @@
     gap: 12px;
   }
   .header-center {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     position: absolute;
     left: 240px; /* largeur sidebar */
     padding-left: 24px; /* padding de la toolbar */
@@ -1295,6 +1298,7 @@
   </div>
   <div class="header-center">
     <button class="btn" id="undoBtn" onclick="undo()" title="Annuler (⌘Z)" disabled>↩</button>
+    <button class="btn" id="redoBtn" onclick="redo()" title="Rétablir (⌘⇧Z)" disabled>↪</button>
   </div>
   <div class="header-right">
     <div class="sync-indicator" id="syncIndicator" style="display:none">
@@ -3104,9 +3108,21 @@ function undo() {
 }
 
 function updateUndoBtn() {
-  const btn = document.getElementById('undoBtn');
-  if (!btn) return;
-  btn.disabled = state.historyIndex <= 0;
+  const u = document.getElementById('undoBtn');
+  const r = document.getElementById('redoBtn');
+  if (u) u.disabled = state.historyIndex <= 0;
+  if (r) r.disabled = state.historyIndex >= state.history.length - 1;
+}
+
+function redo() {
+  if (state.historyIndex >= state.history.length - 1) return;
+  state.historyIndex++;
+  const snapshot = JSON.parse(state.history[state.historyIndex]);
+  state.files   = snapshot.files;
+  state.folders = snapshot.folders;
+  save(); render();
+  showToast('Action rétablie');
+  updateUndoBtn();
 }
 
 function clearSearch() {
@@ -3916,7 +3932,8 @@ document.addEventListener('keydown', e => {
     if (state.selectedFile) closeDetail();
   }
   if ((e.ctrlKey||e.metaKey) && e.key==='f') { e.preventDefault(); document.getElementById('searchInput').focus(); }
-  if ((e.ctrlKey||e.metaKey) && e.key==='z') { e.preventDefault(); undo(); }
+  if ((e.ctrlKey||e.metaKey) && e.key==='z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  if ((e.ctrlKey||e.metaKey) && e.key==='z' && e.shiftKey) { e.preventDefault(); redo(); }
   if (e.key === ' ' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
     if (audio.src) { e.preventDefault(); playerToggle(); }
   }
