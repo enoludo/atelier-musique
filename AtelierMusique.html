@@ -1612,6 +1612,16 @@
         <strong>✓ Sécurisé</strong> — Votre mot de passe transite uniquement vers pCloud via HTTPS et n'est jamais stocké. Seul le token de session résultant est conservé, chiffré localement.
       </div>
 
+      <div id="loginTfa" style="display:none;margin-top:12px">
+        <div class="notice warn" style="margin-bottom:12px">
+          <strong>✉ Code requis</strong> — pCloud a envoyé un code de vérification à votre adresse email.
+        </div>
+        <div class="modal-field">
+          <label>Code de vérification</label>
+          <input type="text" class="modal-input" id="loginCode" placeholder="123456" autocomplete="one-time-code" inputmode="numeric" onkeydown="if(event.key==='Enter') connectWithPassword()">
+        </div>
+      </div>
+
       <div id="loginError" style="display:none;margin-top:12px" class="notice" style="border-color:rgba(255,68,68,0.3)">
         <span style="color:var(--danger)" id="loginErrorMsg">Identifiants incorrects.</span>
       </div>
@@ -1797,15 +1807,25 @@ async function connectWithPassword() {
 
   try {
     // Auth directe username/password via HTTPS — mot de passe jamais stocké,
-    // chiffré en transit. L'auth digest pCloud ne retourne pas de token permanent
-    // (getauth=1 ignoré pour les comptes récents avec digest).
-    const loginUrl = `https://${server}/userinfo?getauth=1`
+    // chiffré en transit.
+    const code = document.getElementById('loginCode').value.trim();
+    let loginUrl = `https://${server}/userinfo?getauth=1`
       + `&username=${encodeURIComponent(email)}`
       + `&password=${encodeURIComponent(password)}`;
+    if (code) loginUrl += `&code=${encodeURIComponent(code)}`;
 
     const loginRes = await fetch(loginUrl);
     const loginData = await loginRes.json();
     console.log('pCloud login response:', JSON.stringify(loginData));
+
+    // pCloud demande un code de vérification (email 2FA)
+    if (loginData.result === 1022) {
+      document.getElementById('loginTfa').style.display = 'block';
+      document.getElementById('loginCode').focus();
+      document.getElementById('loginBtnLabel').textContent = 'Valider le code';
+      btn.disabled = false;
+      return;
+    }
 
     if (loginData.result !== 0 || !loginData.auth) {
       const detail = JSON.stringify(loginData);
@@ -1872,6 +1892,8 @@ function resetLoginForm() {
   document.getElementById('loginSuccess').style.display = 'none';
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginPassword').value = '';
+  document.getElementById('loginCode').value = '';
+  document.getElementById('loginTfa').style.display = 'none';
   document.getElementById('loginError').style.display = 'none';
   document.getElementById('loginBtn').disabled = false;
   document.getElementById('loginBtnLabel').textContent = 'Se connecter';
