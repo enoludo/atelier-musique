@@ -1806,59 +1806,46 @@ async function connectWithPassword() {
   errEl.style.display = 'none';
 
   try {
-    // Step 1 — get digest (salt) from pCloud
-    const digestRes = await fetch(`https://${server}/getdigest`);
-    const digestData = await digestRes.json();
-    if (digestData.result !== 0) throw new Error('Impossible de contacter pCloud');
-
-    const digest = digestData.digest;
-
-    // Step 2 — hash password: SHA1(password + SHA1(lowercase_username) + digest)
-    const usernameSha1   = await sha1hex(email.toLowerCase());
-    const passwordDigest = await sha1hex(password + usernameSha1 + digest);
-
-    // Step 3 — login with digest, request permanent auth token
-    const loginUrl = `https://${server}/userinfo?getauth=1&logout=1`
-      + `&username=${encodeURIComponent(email)}`
-      + `&digest=${encodeURIComponent(digest)}`
-      + `&passworddigest=${encodeURIComponent(passwordDigest)}`;
-
-    const loginRes = await fetch(loginUrl);
-    const loginData = await loginRes.json();
-    console.log('pCloud login response:', JSON.stringify(loginData));
-
-    const authToken = loginData.auth || loginData.token;
-    if (loginData.result !== 0 || !authToken) {
-      const detail = JSON.stringify(loginData);
-      throw new Error((loginData.error || 'Identifiants incorrects') + ' — ' + detail);
-    }
-
-    // pCloud Europe accounts: token must be used on eapi.pcloud.com
-    // but some tokens only work on api.pcloud.com — try both
-    state.pcloud.token = authToken;
-    state.pcloud.server = server;
-    state.pcloud.connected = true;
-
-    // Test token — if it fails on current server, try the other one
-    const testServers = server === 'eapi.pcloud.com'
+    // Tente le digest login sur les deux serveurs (EU puis US ou l'inverse)
+    // Le compte peut être sur un serveur différent de celui sélectionné
+    const serversToTry = server === 'eapi.pcloud.com'
       ? ['eapi.pcloud.com', 'api.pcloud.com']
       : ['api.pcloud.com', 'eapi.pcloud.com'];
 
-    let validServer = null;
-    for (const s of testServers) {
+    let authToken = null, loginData = null, validServer = null;
+
+    for (const s of serversToTry) {
       try {
-        const testUrl = `https://${s}/userinfo?auth=${encodeURIComponent(authToken)}`;
-        const testRes = await fetch(testUrl);
-        const testData = await testRes.json();
-        console.log(`Test server ${s}:`, testData.result);
-        if (testData.result === 0) { validServer = s; break; }
-      } catch(e) {}
+        const dRes  = await fetch(`https://${s}/getdigest`);
+        const dData = await dRes.json();
+        if (dData.result !== 0) continue;
+
+        const usernameSha1   = await sha1hex(email.toLowerCase());
+        const passwordDigest = await sha1hex(password + usernameSha1 + dData.digest);
+
+        const lRes  = await fetch(`https://${s}/userinfo?getauth=1&logout=1`
+          + `&username=${encodeURIComponent(email)}`
+          + `&digest=${encodeURIComponent(dData.digest)}`
+          + `&passworddigest=${encodeURIComponent(passwordDigest)}`);
+        const lData = await lRes.json();
+        console.log(`pCloud login [${s}]:`, JSON.stringify(lData));
+
+        const tok = lData.auth || lData.token;
+        if (lData.result === 0 && tok) {
+          authToken = tok; loginData = lData; validServer = s; break;
+        }
+      } catch(e) { console.warn(`Login attempt [${s}] failed:`, e.message); }
     }
 
-    if (!validServer) throw new Error('Token invalide sur tous les serveurs pCloud');
+    if (!authToken) {
+      const detail = loginData ? JSON.stringify(loginData) : 'aucune réponse';
+      throw new Error('Identifiants incorrects ou token non retourné — ' + detail);
+    }
 
+    state.pcloud.token = authToken;
     state.pcloud.server = validServer;
     state.pcloud.userid = loginData.userid;
+    state.pcloud.connected = true;
     localStorage.setItem('am_auth', JSON.stringify({ token: authToken, server: validServer, userid: loginData.userid }));
     updateConnectionBadge(true, loginData.email || email);
 
