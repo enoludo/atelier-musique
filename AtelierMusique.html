@@ -1796,26 +1796,12 @@ async function connectWithPassword() {
   errEl.style.display = 'none';
 
   try {
-    // Step 1 — get digest (salt) from pCloud
-    const digestRes = await fetch(`https://${server}/getdigest`);
-    const digestData = await digestRes.json();
-    if (digestData.result !== 0) throw new Error('Impossible de contacter pCloud');
-
-    const digest = digestData.digest;
-
-    // Step 2 — hash password the correct pCloud way:
-    // passworddigest = SHA1( password + SHA1( lowercase_username ) + digest )
-    const usernameSha1  = await sha1hex(email.toLowerCase());
-    const passwordDigest = await sha1hex(password + usernameSha1 + digest);
-
-    // Step 3 — login with digest
-    // getauth=1 seul = token permanent (pCloud default quand authexpire absent)
-    // logout=1 omis : conflit sans session existante → result:0 sans auth
-    // authexpire=0 omis : pCloud l'interprète comme "expire dans 0h" → token non retourné
+    // Auth directe username/password via HTTPS — mot de passe jamais stocké,
+    // chiffré en transit. L'auth digest pCloud ne retourne pas de token permanent
+    // (getauth=1 ignoré pour les comptes récents avec digest).
     const loginUrl = `https://${server}/userinfo?getauth=1`
       + `&username=${encodeURIComponent(email)}`
-      + `&digest=${encodeURIComponent(digest)}`
-      + `&passworddigest=${encodeURIComponent(passwordDigest)}`;
+      + `&password=${encodeURIComponent(password)}`;
 
     const loginRes = await fetch(loginUrl);
     const loginData = await loginRes.json();
