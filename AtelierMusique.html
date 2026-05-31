@@ -1806,35 +1806,36 @@ async function connectWithPassword() {
   errEl.style.display = 'none';
 
   try {
-    // Auth directe username/password via HTTPS — mot de passe jamais stocké,
-    // chiffré en transit.
-    const code = document.getElementById('loginCode').value.trim();
-    let loginUrl = `https://${server}/userinfo?getauth=1`
+    // Step 1 — get digest (salt) from pCloud
+    const digestRes = await fetch(`https://${server}/getdigest`);
+    const digestData = await digestRes.json();
+    if (digestData.result !== 0) throw new Error('Impossible de contacter pCloud');
+
+    const digest = digestData.digest;
+
+    // Step 2 — hash password: SHA1(password + SHA1(lowercase_username) + digest)
+    const usernameSha1   = await sha1hex(email.toLowerCase());
+    const passwordDigest = await sha1hex(password + usernameSha1 + digest);
+
+    // Step 3 — login with digest, request permanent auth token
+    const loginUrl = `https://${server}/userinfo?getauth=1&logout=1`
       + `&username=${encodeURIComponent(email)}`
-      + `&password=${encodeURIComponent(password)}`;
-    if (code) loginUrl += `&code=${encodeURIComponent(code)}`;
+      + `&digest=${encodeURIComponent(digest)}`
+      + `&passworddigest=${encodeURIComponent(passwordDigest)}`;
 
     const loginRes = await fetch(loginUrl);
     const loginData = await loginRes.json();
     console.log('pCloud login response:', JSON.stringify(loginData));
 
-    // pCloud demande un code de vérification (email 2FA)
-    if (loginData.result === 1022) {
-      document.getElementById('loginTfa').style.display = 'block';
-      document.getElementById('loginCode').focus();
-      document.getElementById('loginBtnLabel').textContent = 'Valider le code';
-      btn.disabled = false;
-      return;
-    }
-
-    if (loginData.result !== 0 || !loginData.auth) {
+    const authToken = loginData.auth || loginData.token;
+    if (loginData.result !== 0 || !authToken) {
       const detail = JSON.stringify(loginData);
       throw new Error((loginData.error || 'Identifiants incorrects') + ' — ' + detail);
     }
 
     // pCloud Europe accounts: token must be used on eapi.pcloud.com
     // but some tokens only work on api.pcloud.com — try both
-    state.pcloud.token = loginData.auth;
+    state.pcloud.token = authToken;
     state.pcloud.server = server;
     state.pcloud.connected = true;
 
@@ -1846,7 +1847,7 @@ async function connectWithPassword() {
     let validServer = null;
     for (const s of testServers) {
       try {
-        const testUrl = `https://${s}/userinfo?auth=${encodeURIComponent(loginData.auth)}`;
+        const testUrl = `https://${s}/userinfo?auth=${encodeURIComponent(authToken)}`;
         const testRes = await fetch(testUrl);
         const testData = await testRes.json();
         console.log(`Test server ${s}:`, testData.result);
@@ -1858,7 +1859,7 @@ async function connectWithPassword() {
 
     state.pcloud.server = validServer;
     state.pcloud.userid = loginData.userid;
-    localStorage.setItem('am_auth', JSON.stringify({ token: loginData.auth, server: validServer, userid: loginData.userid }));
+    localStorage.setItem('am_auth', JSON.stringify({ token: authToken, server: validServer, userid: loginData.userid }));
     updateConnectionBadge(true, loginData.email || email);
 
     // Clear password immediately
