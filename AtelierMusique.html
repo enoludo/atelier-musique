@@ -1806,40 +1806,63 @@ async function connectWithPassword() {
   errEl.style.display = 'none';
 
   try {
-    // Tente le digest login sur les deux serveurs (EU puis US ou l'inverse)
-    // Le compte peut être sur un serveur différent de celui sélectionné
+    const code = document.getElementById('loginCode').value.trim();
     const serversToTry = server === 'eapi.pcloud.com'
       ? ['eapi.pcloud.com', 'api.pcloud.com']
       : ['api.pcloud.com', 'eapi.pcloud.com'];
 
     let authToken = null, loginData = null, validServer = null;
 
-    for (const s of serversToTry) {
-      try {
-        const dRes  = await fetch(`https://${s}/getdigest`);
-        const dData = await dRes.json();
-        if (dData.result !== 0) continue;
+    // Étape 1 — digest auth (ne transmet jamais le mot de passe)
+    if (!code) {
+      for (const s of serversToTry) {
+        try {
+          const dRes  = await fetch(`https://${s}/getdigest`);
+          const dData = await dRes.json();
+          if (dData.result !== 0) continue;
+          const usernameSha1   = await sha1hex(email.toLowerCase());
+          const passwordDigest = await sha1hex(password + usernameSha1 + dData.digest);
+          const lRes  = await fetch(`https://${s}/userinfo?getauth=1&logout=1`
+            + `&username=${encodeURIComponent(email)}`
+            + `&digest=${encodeURIComponent(dData.digest)}`
+            + `&passworddigest=${encodeURIComponent(passwordDigest)}`);
+          const lData = await lRes.json();
+          console.log(`pCloud digest [${s}]:`, lData.result, lData.auth ? '✓ auth' : '✗ no auth');
+          const tok = lData.auth || lData.token;
+          if (lData.result === 0 && tok) { authToken = tok; loginData = lData; validServer = s; break; }
+          if (lData.result === 2000) continue; // mauvais serveur
+        } catch(e) {}
+      }
+    }
 
-        const usernameSha1   = await sha1hex(email.toLowerCase());
-        const passwordDigest = await sha1hex(password + usernameSha1 + dData.digest);
-
-        const lRes  = await fetch(`https://${s}/userinfo?getauth=1&logout=1`
-          + `&username=${encodeURIComponent(email)}`
-          + `&digest=${encodeURIComponent(dData.digest)}`
-          + `&passworddigest=${encodeURIComponent(passwordDigest)}`);
-        const lData = await lRes.json();
-        console.log(`pCloud login [${s}]:`, JSON.stringify(lData));
-
-        const tok = lData.auth || lData.token;
-        if (lData.result === 0 && tok) {
-          authToken = tok; loginData = lData; validServer = s; break;
-        }
-      } catch(e) { console.warn(`Login attempt [${s}] failed:`, e.message); }
+    // Étape 2 — si pas de token, auth directe (HTTPS, mot de passe jamais stocké)
+    if (!authToken) {
+      for (const s of serversToTry) {
+        try {
+          let url = `https://${s}/userinfo?getauth=1`
+            + `&username=${encodeURIComponent(email)}`
+            + `&password=${encodeURIComponent(password)}`;
+          if (code) url += `&code=${encodeURIComponent(code)}`;
+          const lRes  = await fetch(url);
+          const lData = await lRes.json();
+          console.log(`pCloud direct [${s}]:`, lData.result, lData.auth ? '✓ auth' : lData.error || '');
+          if (lData.result === 1022) {
+            // Code de vérification requis — afficher le champ
+            document.getElementById('loginTfa').style.display = 'block';
+            document.getElementById('loginCode').focus();
+            document.getElementById('loginBtnLabel').textContent = 'Valider le code';
+            btn.disabled = false;
+            label.textContent = 'Valider le code';
+            return;
+          }
+          const tok = lData.auth || lData.token;
+          if (lData.result === 0 && tok) { authToken = tok; loginData = lData; validServer = s; break; }
+        } catch(e) {}
+      }
     }
 
     if (!authToken) {
-      const detail = loginData ? JSON.stringify(loginData) : 'aucune réponse';
-      throw new Error('Identifiants incorrects ou token non retourné — ' + detail);
+      throw new Error('Connexion échouée — vérifiez vos identifiants');
     }
 
     state.pcloud.token = authToken;
