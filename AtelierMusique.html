@@ -1592,24 +1592,54 @@
     <div class="modal-sub">Entrez vos identifiants pCloud — un token permanent est généré et stocké chiffré sur votre machine.</div>
 
     <div id="loginForm">
-      <div class="modal-field">
-        <label>Email pCloud</label>
-        <input type="email" class="modal-input" id="loginEmail" placeholder="vous@email.com" autocomplete="email">
-      </div>
-      <div class="modal-field">
-        <label>Mot de passe</label>
-        <input type="password" class="modal-input" id="loginPassword" placeholder="••••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter') connectWithPassword()">
-      </div>
-      <div class="modal-field">
-        <label>Région de votre compte</label>
-        <select class="modal-input" id="loginRegion">
-          <option value="eapi.pcloud.com">Europe (par défaut)</option>
-          <option value="api.pcloud.com">US</option>
-        </select>
+      <!-- Tabs -->
+      <div style="display:flex;gap:0;margin-bottom:20px;border:1px solid var(--border);border-radius:7px;overflow:hidden">
+        <button id="tabPassword" onclick="switchLoginTab('password')" style="flex:1;padding:8px;background:var(--surface3);border:none;color:var(--text);font-family:'Funnel Sans',sans-serif;font-size:12px;cursor:pointer">Email / Mot de passe</button>
+        <button id="tabToken" onclick="switchLoginTab('token')" style="flex:1;padding:8px;background:none;border:none;color:var(--text2);font-family:'Funnel Sans',sans-serif;font-size:12px;cursor:pointer">Coller un token</button>
       </div>
 
-      <div class="notice">
-        <strong>✓ Sécurisé</strong> — Votre mot de passe transite uniquement vers pCloud via HTTPS et n'est jamais stocké. Seul le token de session résultant est conservé, chiffré localement.
+      <!-- Tab: email/password -->
+      <div id="loginTabPassword">
+        <div class="modal-field">
+          <label>Email pCloud</label>
+          <input type="email" class="modal-input" id="loginEmail" placeholder="vous@email.com" autocomplete="email">
+        </div>
+        <div class="modal-field">
+          <label>Mot de passe</label>
+          <input type="password" class="modal-input" id="loginPassword" placeholder="••••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter') connectWithPassword()">
+        </div>
+        <div class="modal-field">
+          <label>Région de votre compte</label>
+          <select class="modal-input" id="loginRegion">
+            <option value="eapi.pcloud.com">Europe (par défaut)</option>
+            <option value="api.pcloud.com">US</option>
+          </select>
+        </div>
+        <div class="notice">
+          <strong>✓ Sécurisé</strong> — Votre mot de passe transite uniquement vers pCloud via HTTPS et n'est jamais stocké. Seul le token de session résultant est conservé, chiffré localement.
+        </div>
+      </div>
+
+      <!-- Tab: token manuel -->
+      <div id="loginTabToken" style="display:none">
+        <div class="notice warn" style="margin-bottom:16px">
+          <strong>Comment obtenir le token :</strong><br>
+          1. Connecte-toi sur <strong>pcloud.com</strong><br>
+          2. DevTools → Network → rafraîchis la page<br>
+          3. Clique sur une requête vers <code>eapi.pcloud.com</code><br>
+          4. Copie la valeur du paramètre <strong>auth</strong>
+        </div>
+        <div class="modal-field">
+          <label>Token pCloud</label>
+          <input type="text" class="modal-input" id="loginToken" placeholder="Colle ton token ici…" onkeydown="if(event.key==='Enter') connectWithToken()">
+        </div>
+        <div class="modal-field">
+          <label>Région de votre compte</label>
+          <select class="modal-input" id="loginRegionToken">
+            <option value="eapi.pcloud.com">Europe (par défaut)</option>
+            <option value="api.pcloud.com">US</option>
+          </select>
+        </div>
       </div>
 
       <div id="loginTfa" style="display:none;margin-top:12px">
@@ -1628,7 +1658,7 @@
 
       <div class="modal-footer">
         <button class="btn" onclick="closeModal('connectModal')">Annuler</button>
-        <button class="btn primary" id="loginBtn" onclick="connectWithPassword()">
+        <button class="btn primary" id="loginBtn" onclick="loginSubmit()">
           <span id="loginBtnLabel">Se connecter</span>
         </button>
       </div>
@@ -1785,6 +1815,65 @@ function setSyncStatus(status, label) {
 }
 
 // ============================================================
+//  LOGIN TAB SWITCHER
+// ============================================================
+let _loginTab = 'password';
+function switchLoginTab(tab) {
+  _loginTab = tab;
+  document.getElementById('loginTabPassword').style.display = tab === 'password' ? 'block' : 'none';
+  document.getElementById('loginTabToken').style.display    = tab === 'token'    ? 'block' : 'none';
+  document.getElementById('tabPassword').style.background   = tab === 'password' ? 'var(--surface3)' : 'none';
+  document.getElementById('tabPassword').style.color        = tab === 'password' ? 'var(--text)'     : 'var(--text2)';
+  document.getElementById('tabToken').style.background      = tab === 'token'    ? 'var(--surface3)' : 'none';
+  document.getElementById('tabToken').style.color           = tab === 'token'    ? 'var(--text)'     : 'var(--text2)';
+  document.getElementById('loginBtnLabel').textContent      = tab === 'token'    ? 'Valider le token' : 'Se connecter';
+}
+
+function loginSubmit() {
+  if (_loginTab === 'token') connectWithToken();
+  else connectWithPassword();
+}
+
+async function connectWithToken() {
+  const token  = document.getElementById('loginToken').value.trim();
+  const server = document.getElementById('loginRegionToken').value;
+  const btn    = document.getElementById('loginBtn');
+  const label  = document.getElementById('loginBtnLabel');
+  const errEl  = document.getElementById('loginError');
+
+  if (!token) { errEl.style.display='block'; document.getElementById('loginErrorMsg').textContent='Colle ton token.'; return; }
+  btn.disabled = true; label.textContent = 'Vérification…'; errEl.style.display='none';
+
+  try {
+    // Test token on both servers
+    let validServer = null;
+    let userData    = null;
+    for (const s of [server, server === 'eapi.pcloud.com' ? 'api.pcloud.com' : 'eapi.pcloud.com']) {
+      try {
+        const r = await fetch(`https://${s}/userinfo?auth=${encodeURIComponent(token)}`);
+        const d = await r.json();
+        if (d.result === 0) { validServer = s; userData = d; break; }
+      } catch(e) {}
+    }
+    if (!validServer) throw new Error('Token invalide ou expiré');
+
+    state.pcloud.token     = token;
+    state.pcloud.server    = validServer;
+    state.pcloud.userid    = userData.userid;
+    state.pcloud.connected = true;
+    localStorage.setItem('am_auth', JSON.stringify({ token, server: validServer, userid: userData.userid }));
+    updateConnectionBadge(true, userData.email || '');
+    document.getElementById('loginForm').style.display    = 'none';
+    document.getElementById('loginSuccess').style.display = 'block';
+    await loadFromPCloud(); render(); await detectExplorerRoot(); await autoSyncLibrary();
+  } catch(e) {
+    errEl.style.display = 'block';
+    document.getElementById('loginErrorMsg').textContent = e.message;
+    btn.disabled = false; label.textContent = 'Valider le token';
+  }
+}
+
+// ============================================================
 //  PASSWORD LOGIN — pCloud digest auth
 // ============================================================
 async function connectWithPassword() {
@@ -1899,15 +1988,16 @@ async function sha1hex(str) {
 }
 
 function resetLoginForm() {
-  document.getElementById('loginForm').style.display = 'block';
+  document.getElementById('loginForm').style.display    = 'block';
   document.getElementById('loginSuccess').style.display = 'none';
-  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginEmail').value    = '';
   document.getElementById('loginPassword').value = '';
-  document.getElementById('loginCode').value = '';
-  document.getElementById('loginTfa').style.display = 'none';
+  document.getElementById('loginCode').value     = '';
+  document.getElementById('loginToken').value    = '';
+  document.getElementById('loginTfa').style.display   = 'none';
   document.getElementById('loginError').style.display = 'none';
   document.getElementById('loginBtn').disabled = false;
-  document.getElementById('loginBtnLabel').textContent = 'Se connecter';
+  switchLoginTab('password');
 }
 
 // ============================================================
