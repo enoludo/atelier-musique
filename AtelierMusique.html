@@ -1809,8 +1809,9 @@ async function connectWithPassword() {
     const passwordDigest = await sha1hex(password + usernameSha1 + digest);
 
     // Step 3 — login with digest
-    // authexpire not set = permanent token
-    const loginUrl = `https://${server}/userinfo?getauth=1&logout=1`
+    // authexpire=0 = permanent token (never expires)
+    // logout=1 omis : crée un conflit sur les comptes sans session existante — pCloud retourne result:0 sans champ auth
+    const loginUrl = `https://${server}/userinfo?getauth=1&authexpire=0`
       + `&username=${encodeURIComponent(email)}`
       + `&digest=${encodeURIComponent(digest)}`
       + `&passworddigest=${encodeURIComponent(passwordDigest)}`;
