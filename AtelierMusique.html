@@ -1835,7 +1835,10 @@ function loginSubmit() {
 }
 
 async function connectWithToken() {
-  const token  = document.getElementById('loginToken').value.trim();
+  let raw = document.getElementById('loginToken').value.trim();
+  // Accepte une URL complète — extrait le paramètre auth=
+  try { const u = new URL(raw); raw = u.searchParams.get('auth') || raw; } catch(e) {}
+  const token  = raw;
   const server = document.getElementById('loginRegionToken').value;
   const btn    = document.getElementById('loginBtn');
   const label  = document.getElementById('loginBtnLabel');
@@ -1845,17 +1848,19 @@ async function connectWithToken() {
   btn.disabled = true; label.textContent = 'Vérification…'; errEl.style.display='none';
 
   try {
-    // Test token on both servers
     let validServer = null;
     let userData    = null;
+    let lastErr     = '';
     for (const s of [server, server === 'eapi.pcloud.com' ? 'api.pcloud.com' : 'eapi.pcloud.com']) {
       try {
         const r = await fetch(`https://${s}/userinfo?auth=${encodeURIComponent(token)}`);
         const d = await r.json();
+        console.log(`Token test [${s}]:`, JSON.stringify(d));
         if (d.result === 0) { validServer = s; userData = d; break; }
-      } catch(e) {}
+        lastErr = `result:${d.result} ${d.error||''}`;
+      } catch(e) { lastErr = e.message; }
     }
-    if (!validServer) throw new Error('Token invalide ou expiré');
+    if (!validServer) throw new Error(`Token invalide ou expiré (${lastErr})`);
 
     state.pcloud.token     = token;
     state.pcloud.server    = validServer;
